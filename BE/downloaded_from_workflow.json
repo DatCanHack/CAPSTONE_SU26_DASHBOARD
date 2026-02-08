@@ -1,0 +1,16 @@
+{
+  "report_id": "TP-001",
+  "vulnerability_type": "SQL Injection",
+  "severity": "HIGH",
+  "status": "TRUE_POSITIVE",
+  "description": "Confirmed SQL injection vulnerability in authentication module",
+  "affected_component": "app/routes/auth.py",
+  "line_number": 45,
+  "poc_available": true,
+  "recommendation": "Use parameterized queries to prevent SQL injection attacks",
+  "llm_analysis": {
+    "mode": "fine_tune",
+    "confidence": "HIGH",
+    "reasoning": "The vulnerability is exploitable and poses significant security risk"
+  }
+}
