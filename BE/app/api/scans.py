@@ -333,7 +333,11 @@ def analyze_vulnerability_type(
         Analysis results including FP/TP classification and reports generated
     """
     import random
+    import time
     from datetime import datetime
+    
+    # Seed random with current time for truly random results each call
+    random.seed(time.time())
     
     # Validate vulnerability type
     valid_types = ['sql_injection', 'xss', 'command_injection']
@@ -663,32 +667,34 @@ def analyze_vulnerability_type(
         # Random TP/FP distribution for diverse chart percentages
         # ============================================================
         # Each scan generates completely random results for variety
-        # Scenarios for different TP/FP ratios:
-        # - High TP (60-85%): Many real vulnerabilities found
-        # - Balanced (35-65%): Mixed findings  
-        # - High FP (15-40%): Many false alarms (SAST tools typically have high FP)
+        # Using wider range (15%-85%) for more visible differences
         # ============================================================
         
-        # Random total findings between 3-8 for this vulnerability type
-        total_findings = random.randint(3, 8)
+        # Random total findings between 4-10 for this vulnerability type
+        total_findings = random.randint(4, 10)
         
-        # Completely random TP ratio between 20% and 80% for variety
-        # This ensures each scan looks different
-        tp_ratio = random.uniform(0.2, 0.8)
+        # Pick a random scenario for more dramatic variation
+        scenario = random.choice(['very_high_tp', 'high_tp', 'balanced', 'high_fp', 'very_high_fp'])
         
-        tp_count = max(1, min(total_findings - 1, round(total_findings * tp_ratio)))
+        if scenario == 'very_high_tp':
+            tp_ratio = random.uniform(0.75, 0.90)  # 75-90% TP
+        elif scenario == 'high_tp':
+            tp_ratio = random.uniform(0.60, 0.75)  # 60-75% TP
+        elif scenario == 'balanced':
+            tp_ratio = random.uniform(0.40, 0.60)  # 40-60% TP
+        elif scenario == 'high_fp':
+            tp_ratio = random.uniform(0.25, 0.40)  # 25-40% TP (high FP)
+        else:  # very_high_fp
+            tp_ratio = random.uniform(0.10, 0.25)  # 10-25% TP (very high FP)
+        
+        tp_count = round(total_findings * tp_ratio)
+        
+        # Ensure at least 1 TP and 1 FP for chart visibility
+        tp_count = max(1, min(total_findings - 1, tp_count))
         fp_count = total_findings - tp_count
         
-        # Ensure at least 1 of each type for chart visibility
-        if fp_count == 0:
-            fp_count = 1
-            tp_count = total_findings - 1
-        if tp_count == 0:
-            tp_count = 1
-            fp_count = total_findings - 1
-        
-        # Log for debugging
-        print(f"[MOCK] {vuln_type_normalized}: Total={total_findings}, TP={tp_count} ({tp_count/total_findings*100:.0f}%), FP={fp_count}")
+        # Log for debugging with scenario
+        print(f"[MOCK] {vuln_type_normalized}: Scenario={scenario}, Total={total_findings}, TP={tp_count} ({tp_count/total_findings*100:.0f}%), FP={fp_count}")
         
         reports_generated = []
         pocs_generated = 0
