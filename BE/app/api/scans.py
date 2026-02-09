@@ -313,9 +313,10 @@ async def analyze_all_vulnerabilities(
 
 
 @router.post("/{scan_id}/analyze-vulnerability-type")
-async def analyze_vulnerability_type(
+def analyze_vulnerability_type(
     scan_id: int,
     vulnerability_type: str,
+    force_reanalyze: bool = False,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -326,6 +327,7 @@ async def analyze_vulnerability_type(
     Args:
         scan_id: The scan ID
         vulnerability_type: One of 'sql_injection', 'xss', 'command_injection'
+        force_reanalyze: If True, delete existing analysis and re-analyze with new random data
     
     Returns:
         Analysis results including FP/TP classification and reports generated
@@ -378,7 +380,7 @@ async def analyze_vulnerability_type(
         Vulnerability.status.in_([VulnerabilityStatus.TRUE_POSITIVE, VulnerabilityStatus.FALSE_POSITIVE])
     ).all()
     
-    if existing_vulns:
+    if existing_vulns and not force_reanalyze:
         # Already analyzed - return cached results from database
         tp_count = sum(1 for v in existing_vulns if v.status == VulnerabilityStatus.TRUE_POSITIVE)
         fp_count = sum(1 for v in existing_vulns if v.status == VulnerabilityStatus.FALSE_POSITIVE)
@@ -405,7 +407,7 @@ async def analyze_vulnerability_type(
             "scan_id": scan_id,
             "vulnerability_type": vulnerability_type,
             "status": "already_analyzed",
-            "message": f"LLM analysis already completed for {vulnerability_type}",
+            "message": f"LLM analysis already completed for {vulnerability_type}. Use force_reanalyze=true to re-analyze.",
             "results": {
                 "vulnerability_type": vulnerability_type,
                 "total_findings": len(existing_vulns),
@@ -415,6 +417,22 @@ async def analyze_vulnerability_type(
                 "pocs_generated": len(existing_pocs)
             }
         }
+    
+    # If force_reanalyze, delete existing data for this vulnerability type
+    if existing_vulns and force_reanalyze:
+        print(f"[MOCK] Force re-analyze: Deleting {len(existing_vulns)} existing vulnerabilities for {vuln_type_normalized}")
+        vuln_ids = [v.id for v in existing_vulns]
+        
+        # Delete related PoCs first (foreign key constraint)
+        db.query(PoC).filter(PoC.vulnerability_id.in_(vuln_ids)).delete(synchronize_session=False)
+        
+        # Delete related Reports
+        db.query(Report).filter(Report.vulnerability_id.in_(vuln_ids)).delete(synchronize_session=False)
+        
+        # Delete Vulnerabilities
+        db.query(Vulnerability).filter(Vulnerability.id.in_(vuln_ids)).delete(synchronize_session=False)
+        
+        db.commit()
     
     try:
         # Update scan status to running LLM

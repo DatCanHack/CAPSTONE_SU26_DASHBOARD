@@ -286,7 +286,11 @@ class APIService {
     });
   }
 
-  async analyzeVulnerabilityType(scanId: number, vulnerabilityType: string) {
+  async analyzeVulnerabilityType(scanId: number, vulnerabilityType: string, forceReanalyze: boolean = false) {
+    const params = new URLSearchParams({
+      vulnerability_type: vulnerabilityType,
+      force_reanalyze: forceReanalyze.toString()
+    });
     return this.request<{
       scan_id: number;
       vulnerability_type: string;
@@ -303,7 +307,7 @@ class APIService {
         }>;
         pocs_generated: number;
       };
-    }>(`/api/scans/${scanId}/analyze-vulnerability-type?vulnerability_type=${vulnerabilityType}`, {
+    }>(`/api/scans/${scanId}/analyze-vulnerability-type?${params.toString()}`, {
       method: 'POST',
     });
   }

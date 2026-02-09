@@ -140,7 +140,7 @@ export function ScanResultPage() {
     setScanResultFiles(files);
   };
 
-  const handleAnalyze = async (fileId: string) => {
+  const handleAnalyze = async (fileId: string, forceReanalyze: boolean = false) => {
     setAnalyzing(fileId);
     
     setScanResultFiles(files => 
@@ -158,8 +158,8 @@ export function ScanResultPage() {
       const vulnType = vulnerabilityTypeMap[fileId];
       
       if (vulnType && scan) {
-        // Call actual LLM API endpoint
-        const response = await api.analyzeVulnerabilityType(scan.id, vulnType);
+        // Call actual LLM API endpoint with force_reanalyze option
+        const response = await api.analyzeVulnerabilityType(scan.id, vulnType, forceReanalyze);
         console.log('LLM Analysis result:', response);
       }
 
@@ -168,7 +168,7 @@ export function ScanResultPage() {
       );
     } catch (err) {
       console.error('LLM Analysis failed:', err);
-      // Revert to pending status on error
+      // Revert to previous status on error
       setScanResultFiles(files => 
         files.map(f => f.id === fileId ? { ...f, status: 'pending' as const } : f)
       );
@@ -402,7 +402,18 @@ export function ScanResultPage() {
                           </button>
                         )}
                         {file.status === 'completed' && (
-                          <span className="text-xs text-green-400">✓ Done</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-green-400">✓ Done</span>
+                            <button
+                              onClick={() => handleAnalyze(file.id, true)}
+                              disabled={!!analyzing}
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors disabled:opacity-50"
+                              title="Re-analyze with new random data"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              Re-analyze
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
