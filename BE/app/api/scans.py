@@ -644,41 +644,19 @@ async def analyze_vulnerability_type(
         # ============================================================
         # Random TP/FP distribution for diverse chart percentages
         # ============================================================
+        # Each scan generates completely random results for variety
         # Scenarios for different TP/FP ratios:
-        # - High TP (70-90%): Many real vulnerabilities found
-        # - Balanced (40-60%): Mixed findings
-        # - High FP (70-90%): Many false alarms
-        # - Edge cases: All TP or mostly FP
+        # - High TP (60-85%): Many real vulnerabilities found
+        # - Balanced (35-65%): Mixed findings  
+        # - High FP (15-40%): Many false alarms (SAST tools typically have high FP)
         # ============================================================
         
-        total_findings = random.randint(4, 10)
+        # Random total findings between 3-8 for this vulnerability type
+        total_findings = random.randint(3, 8)
         
-        # Random scenario selection for diverse percentages
-        scenario = random.choice([
-            'high_tp',      # 70-90% TP
-            'high_tp',      # Weight towards high TP (more realistic)
-            'balanced',     # 40-60% TP  
-            'balanced',     # Weight towards balanced
-            'high_fp',      # 70-90% FP
-            'mostly_tp',    # 80-95% TP
-            'mostly_fp',    # 80-95% FP
-        ])
-        
-        if scenario == 'high_tp':
-            # 70-90% True Positives
-            tp_ratio = random.uniform(0.7, 0.9)
-        elif scenario == 'balanced':
-            # 40-60% True Positives
-            tp_ratio = random.uniform(0.4, 0.6)
-        elif scenario == 'high_fp':
-            # Only 10-30% True Positives (high false positive rate)
-            tp_ratio = random.uniform(0.1, 0.3)
-        elif scenario == 'mostly_tp':
-            # 80-95% True Positives
-            tp_ratio = random.uniform(0.8, 0.95)
-        else:  # mostly_fp
-            # Only 5-20% True Positives
-            tp_ratio = random.uniform(0.05, 0.2)
+        # Completely random TP ratio between 20% and 80% for variety
+        # This ensures each scan looks different
+        tp_ratio = random.uniform(0.2, 0.8)
         
         tp_count = max(1, min(total_findings - 1, round(total_findings * tp_ratio)))
         fp_count = total_findings - tp_count
@@ -691,6 +669,9 @@ async def analyze_vulnerability_type(
             tp_count = 1
             fp_count = total_findings - 1
         
+        # Log for debugging
+        print(f"[MOCK] {vuln_type_normalized}: Total={total_findings}, TP={tp_count} ({tp_count/total_findings*100:.0f}%), FP={fp_count}")
+        
         reports_generated = []
         pocs_generated = 0
         
@@ -699,34 +680,55 @@ async def analyze_vulnerability_type(
         random.shuffle(indices)
         
         # Create vulnerabilities and reports in database
+        # Shuffle order so TP and FP are mixed (not all TP first)
+        finding_types = [True] * tp_count + [False] * fp_count
+        random.shuffle(finding_types)
+        
         for i in range(total_findings):
-            is_tp = i < tp_count
+            is_tp = finding_types[i]
             idx = indices[i % len(indices)]
             
-            # Random severity based on TP/FP
+            # Random severity - weighted by TP/FP but with some overlap for realism
             if is_tp:
-                severity = random.choice([VulnerabilitySeverity.CRITICAL, VulnerabilitySeverity.HIGH])
+                # TP: mostly Critical/High, but occasionally Medium
+                severity = random.choices(
+                    [VulnerabilitySeverity.CRITICAL, VulnerabilitySeverity.HIGH, VulnerabilitySeverity.MEDIUM],
+                    weights=[35, 50, 15]
+                )[0]
             else:
-                severity = random.choice([VulnerabilitySeverity.LOW, VulnerabilitySeverity.MEDIUM, VulnerabilitySeverity.INFO])
+                # FP: mostly Low/Medium/Info, but occasionally High (SAST false alarms)
+                severity = random.choices(
+                    [VulnerabilitySeverity.HIGH, VulnerabilitySeverity.MEDIUM, VulnerabilitySeverity.LOW, VulnerabilitySeverity.INFO],
+                    weights=[10, 30, 35, 25]
+                )[0]
             
-            # Get description based on classification
-            description = random.choice(vuln_mock['descriptions_tp'] if is_tp else vuln_mock['descriptions_fp'])
+            # Get description based on classification - random from pool
+            descriptions_pool = vuln_mock['descriptions_tp'] if is_tp else vuln_mock['descriptions_fp']
+            description = descriptions_pool[random.randint(0, len(descriptions_pool) - 1)]
             
-            # Random confidence score
-            confidence = random.randint(75, 98) if is_tp else random.randint(60, 85)
+            # Random confidence score with more variation
+            confidence = random.randint(72, 98) if is_tp else random.randint(55, 88)
+            
+            # Random selection for title, file, code snippet
+            title_idx = random.randint(0, len(vuln_mock['titles']) - 1)
+            file_idx = random.randint(0, len(vuln_mock['files']) - 1)
+            snippet_idx = random.randint(0, len(vuln_mock['code_snippets']) - 1)
+            
+            # Random line number in realistic range
+            line_number = random.randint(25, 450)
             
             # Create vulnerability record
             vuln = Vulnerability(
                 scan_id=scan_id,
-                title=vuln_mock['titles'][idx % len(vuln_mock['titles'])],
+                title=vuln_mock['titles'][title_idx],
                 description=description,
                 severity=severity,
                 status=VulnerabilityStatus.TRUE_POSITIVE if is_tp else VulnerabilityStatus.FALSE_POSITIVE,
                 sast_json_path=f"C:\\tmp\\{project.name}\\result\\{vuln_type_normalized}_results.json",
                 cwe_id=vuln_mock['cwe_id'],
-                file_path=vuln_mock['files'][idx % len(vuln_mock['files'])],
-                line_number=random.randint(15, 350),
-                code_snippet=vuln_mock['code_snippets'][idx % len(vuln_mock['code_snippets'])] if is_tp else None,
+                file_path=vuln_mock['files'][file_idx],
+                line_number=line_number,
+                code_snippet=vuln_mock['code_snippets'][snippet_idx] if is_tp else None,
                 is_false_positive=not is_tp,
                 llm_confidence_score=f"{confidence}%",
                 recommendation=random.choice(vuln_mock['recommendations']) if is_tp else "No action required - verified as false positive."
