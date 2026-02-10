@@ -25,6 +25,13 @@ class ScanResponse(BaseModel):
     llm_analysis_mode: Optional[str]
     llm_output_path: Optional[str]
     
+    # Source code info
+    source_code_path: Optional[str]
+    source_code_type: Optional[str]
+    source_code_name: Optional[str]
+    source_code_file_count: Optional[int]
+    source_code_size: Optional[int]
+    
     # Timestamps
     started_at: Optional[datetime]
     sast_completed_at: Optional[datetime]

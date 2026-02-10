@@ -25,6 +25,9 @@ class ProjectResponse(BaseModel):
     target_url: Optional[str]
     source_code_path: Optional[str]
     source_code_size: Optional[int]
+    source_code_type: Optional[str]  # "file" or "folder"
+    source_code_name: Optional[str]  # Original filename or folder name
+    source_code_file_count: Optional[int]  # Number of files (for folder)
     source_code_uploaded_at: Optional[datetime]
     owner_id: int
     created_at: datetime

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
 import { api } from '../lib/api';
-import { Plus, FolderOpen, Calendar, Trash2, FileCode, Loader2, AlertTriangle } from 'lucide-react';
+import { useSearch } from '../lib/search';
+import { Plus, FolderOpen, Calendar, Trash2, FileCode, Loader2, AlertTriangle, SearchX } from 'lucide-react';
 
 interface Project {
   id: number;
@@ -19,6 +20,29 @@ export function HomePage() {
   const [error, setError] = useState('');
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; project: Project | null }>({ show: false, project: null });
   const [deleting, setDeleting] = useState(false);
+  const { searchQuery } = useSearch();
+
+  // Filter projects based on search query
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    const query = searchQuery.toLowerCase();
+    return projects.filter(project => 
+      project.name.toLowerCase().includes(query) ||
+      project.id.toString().includes(query)
+    );
+  }, [projects, searchQuery]);
+
+  // Highlight matching text in project name
+  const highlightMatch = (text: string) => {
+    if (!searchQuery.trim()) return text;
+    const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return parts.map((part, i) => 
+      regex.test(part) ? (
+        <span key={i} className="bg-blue-500/30 text-blue-300 px-0.5 rounded">{part}</span>
+      ) : part
+    );
+  };
 
   useEffect(() => {
     loadProjects();
@@ -78,7 +102,15 @@ export function HomePage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-white mb-1">Projects</h1>
-            <p className="text-gray-400 text-sm">Manage your SAST scanning projects</p>
+            <p className="text-gray-400 text-sm">
+              {searchQuery ? (
+                <>
+                  Found <span className="text-blue-400 font-medium">{filteredProjects.length}</span> of {projects.length} projects
+                </>
+              ) : (
+                'Manage your SAST scanning projects'
+              )}
+            </p>
           </div>
           <button
             onClick={() => setShowModal(true)}
@@ -117,9 +149,18 @@ export function HomePage() {
               Create Project
             </button>
           </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg p-12 text-center">
+            <SearchX className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No projects found</h3>
+            <p className="text-gray-400 mb-2 text-sm">
+              No projects matching "<span className="text-blue-400">{searchQuery}</span>"
+            </p>
+            <p className="text-gray-500 text-xs">Try a different search term</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <div
                 key={project.id}
                 className="bg-[#1a1a1a] border border-[#333333] rounded-lg p-5 hover:border-[#404040] transition-colors group"
@@ -128,7 +169,7 @@ export function HomePage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-3">
                       <FileCode className="w-5 h-5 text-blue-500" />
-                      <h3 className="font-medium text-white">{project.name}</h3>
+                      <h3 className="font-medium text-white">{highlightMatch(project.name)}</h3>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                       <Calendar className="w-3 h-3" />

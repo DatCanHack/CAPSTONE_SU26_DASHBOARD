@@ -1,6 +1,6 @@
-# Super SAST - Static Application Security Testing Platform
+# Super SAST - Hybrid Automated Security Testing Platform
 
-A comprehensive SAST (Static Application Security Testing) platform that combines traditional SAST tools with LLM-powered analysis to reduce false positives and generate actionable security reports.
+A Hybrid Automated Security Testing Platform that combines traditional SAST tools with LLM-powered analysis to reduce false positives and generate actionable security reports.
 
 ## 🏗️ Architecture
 
@@ -61,12 +61,14 @@ CAPSTONE_SU26/
 ## 🛠️ Tech Stack
 
 ### Backend
+
 - **Framework**: FastAPI
 - **Database**: SQLAlchemy + SQLite (dev) / PostgreSQL (prod)
 - **Authentication**: JWT (python-jose)
 - **SAST Tools**: Snyk, Semgrep, CodeQL
 
 ### Frontend
+
 - **Framework**: React 18 + TypeScript
 - **Build Tool**: Vite
 - **Styling**: TailwindCSS
@@ -76,6 +78,7 @@ CAPSTONE_SU26/
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python 3.9+
 - Node.js 18+
 - npm or yarn
@@ -109,6 +112,7 @@ npm run dev
 ```
 
 ### Access the Application
+
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
@@ -116,12 +120,14 @@ npm run dev
 ## 📝 API Documentation
 
 Once the backend is running, access the interactive API documentation at:
+
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
 ## 🔧 Configuration
 
 ### Backend Environment Variables (.env)
+
 ```env
 DATABASE_URL=sqlite:///./sast.db
 SECRET_KEY=your-secret-key
@@ -130,14 +136,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 
 ### Frontend Environment Variables (.env)
+
 ```env
 VITE_API_URL=http://localhost:8000
 ```
-
-## 👥 Team
-
-- **Developer**: Le Quang Dat
-- **Project**: Capstone Project SU26
 
 ## 📄 License
 

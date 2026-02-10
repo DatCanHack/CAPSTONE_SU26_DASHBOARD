@@ -47,7 +47,7 @@ export function LoginPage() {
               Super SAST
             </h1>
             <p className="text-xs text-gray-400 tracking-wide">
-              Advanced Security Analysis Platform
+              Power Automated Security Testing System
             </p>
           </div>
         </div>

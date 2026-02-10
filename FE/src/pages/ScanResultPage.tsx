@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router';
-import { api } from '../lib/api';
-import { 
-  ChevronRight, FileJson, CheckCircle, Loader2, Brain, 
-  Shield, Clock, RefreshCw, ArrowLeft
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router";
+import { api } from "../lib/api";
+import {
+  ChevronRight,
+  FileJson,
+  CheckCircle,
+  Loader2,
+  Brain,
+  Shield,
+  Clock,
+  RefreshCw,
+  ArrowLeft,
+} from "lucide-react";
 
 interface Project {
   id: number;
@@ -30,8 +37,8 @@ interface Scan {
 interface ScanResultFile {
   id: string;
   fileName: string;
-  vulnerabilityType: 'SQL Injection' | 'XSS' | 'Command Injection';
-  status: 'pending' | 'scanning' | 'completed';
+  vulnerabilityType: "SQL Injection" | "XSS" | "Command Injection";
+  status: "pending" | "scanning" | "completed";
   resultPath: string;
   scannedAt?: Date;
 }
@@ -42,7 +49,7 @@ export function ScanResultPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [scan, setScan] = useState<Scan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [analyzing, setAnalyzing] = useState<string | null>(null);
   const [scanResultFiles, setScanResultFiles] = useState<ScanResultFile[]>([]);
 
@@ -51,11 +58,20 @@ export function ScanResultPage() {
   }, [projectId, scanId]);
 
   const isCompleted = (status: string) => {
-    return status === 'COMPLETED' || status === 'sast_completed' || status === 'llm_completed';
+    return (
+      status === "COMPLETED" ||
+      status === "sast_completed" ||
+      status === "llm_completed"
+    );
   };
 
   const isRunning = (status: string) => {
-    return status === 'PENDING' || status === 'RUNNING' || status === 'sast_running' || status === 'llm_running';
+    return (
+      status === "PENDING" ||
+      status === "RUNNING" ||
+      status === "sast_running" ||
+      status === "llm_running"
+    );
   };
 
   useEffect(() => {
@@ -72,8 +88,8 @@ export function ScanResultPage() {
       setLoading(true);
       await Promise.all([loadProject(), loadScan()]);
     } catch (err) {
-      console.error('Failed to load data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      console.error("Failed to load data:", err);
+      setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -87,15 +103,15 @@ export function ScanResultPage() {
   const loadScan = async () => {
     const data = await api.getScan(Number(scanId));
     setScan(data);
-    
+
     if (isCompleted(data.status)) {
       generateScanResultFiles(data);
     }
   };
 
   const generateScanResultFiles = async (scanData: Scan) => {
-    const basePath = `C:\\tmp\\${project?.name || 'project'}\\scan_results`;
-    
+    const basePath = `C:\\tmp\\${project?.name || "project"}\\scan_results`;
+
     // Load vulnerabilities from database to check which types have been analyzed
     let analyzedTypes: Set<string> = new Set();
     try {
@@ -103,36 +119,43 @@ export function ScanResultPage() {
       // Check which vulnerability types have been analyzed (have TP or FP status)
       for (const vuln of vulnerabilities) {
         // Status from BE: 'true_positive', 'false_positive', 'pending_analysis', etc.
-        if (vuln.status === 'true_positive' || vuln.status === 'false_positive') {
-          if (vuln.title?.includes('SQL Injection')) analyzedTypes.add('SQL Injection');
-          if (vuln.title?.includes('XSS')) analyzedTypes.add('XSS');
-          if (vuln.title?.includes('Command Injection')) analyzedTypes.add('Command Injection');
+        if (
+          vuln.status === "true_positive" ||
+          vuln.status === "false_positive"
+        ) {
+          if (vuln.title?.includes("SQL Injection"))
+            analyzedTypes.add("SQL Injection");
+          if (vuln.title?.includes("XSS")) analyzedTypes.add("XSS");
+          if (vuln.title?.includes("Command Injection"))
+            analyzedTypes.add("Command Injection");
         }
       }
     } catch (err) {
-      console.log('No existing vulnerabilities found');
+      console.log("No existing vulnerabilities found");
     }
-    
+
     const files: ScanResultFile[] = [
       {
         id: `${scanData.id}-sqli`,
-        fileName: 'SQL_Injection_results.json',
-        vulnerabilityType: 'SQL Injection',
-        status: analyzedTypes.has('SQL Injection') ? 'completed' : 'pending',
+        fileName: "SQL_Injection_results.json",
+        vulnerabilityType: "SQL Injection",
+        status: analyzedTypes.has("SQL Injection") ? "completed" : "pending",
         resultPath: `${basePath}\\SQL_Injection_results.json`,
       },
       {
         id: `${scanData.id}-xss`,
-        fileName: 'XSS_results.json',
-        vulnerabilityType: 'XSS',
-        status: analyzedTypes.has('XSS') ? 'completed' : 'pending',
+        fileName: "XSS_results.json",
+        vulnerabilityType: "XSS",
+        status: analyzedTypes.has("XSS") ? "completed" : "pending",
         resultPath: `${basePath}\\XSS_results.json`,
       },
       {
         id: `${scanData.id}-cmdi`,
-        fileName: 'Command_Injection_results.json',
-        vulnerabilityType: 'Command Injection',
-        status: analyzedTypes.has('Command Injection') ? 'completed' : 'pending',
+        fileName: "Command_Injection_results.json",
+        vulnerabilityType: "Command Injection",
+        status: analyzedTypes.has("Command Injection")
+          ? "completed"
+          : "pending",
         resultPath: `${basePath}\\Command_Injection_results.json`,
       },
     ];
@@ -140,74 +163,91 @@ export function ScanResultPage() {
     setScanResultFiles(files);
   };
 
-  const handleAnalyze = async (fileId: string, forceReanalyze: boolean = false) => {
+  const handleAnalyze = async (
+    fileId: string,
+    forceReanalyze: boolean = false,
+  ) => {
     setAnalyzing(fileId);
-    
-    setScanResultFiles(files => 
-      files.map(f => f.id === fileId ? { ...f, status: 'scanning' as const } : f)
+
+    setScanResultFiles((files) =>
+      files.map((f) =>
+        f.id === fileId ? { ...f, status: "scanning" as const } : f,
+      ),
     );
 
     try {
       // Map file ID to vulnerability type for API
       const vulnerabilityTypeMap: Record<string, string> = {
-        [`${scan?.id}-sqli`]: 'sql_injection',
-        [`${scan?.id}-xss`]: 'xss',
-        [`${scan?.id}-cmdi`]: 'command_injection',
+        [`${scan?.id}-sqli`]: "sql_injection",
+        [`${scan?.id}-xss`]: "xss",
+        [`${scan?.id}-cmdi`]: "command_injection",
       };
-      
+
       const vulnType = vulnerabilityTypeMap[fileId];
-      
+
       if (vulnType && scan) {
         // Call actual LLM API endpoint with force_reanalyze option
-        const response = await api.analyzeVulnerabilityType(scan.id, vulnType, forceReanalyze);
-        console.log('LLM Analysis result:', response);
+        const response = await api.analyzeVulnerabilityType(
+          scan.id,
+          vulnType,
+          forceReanalyze,
+        );
+        console.log("LLM Analysis result:", response);
       }
 
-      setScanResultFiles(files => 
-        files.map(f => f.id === fileId ? { ...f, status: 'completed' as const, scannedAt: new Date() } : f)
+      setScanResultFiles((files) =>
+        files.map((f) =>
+          f.id === fileId
+            ? { ...f, status: "completed" as const, scannedAt: new Date() }
+            : f,
+        ),
       );
     } catch (err) {
-      console.error('LLM Analysis failed:', err);
+      console.error("LLM Analysis failed:", err);
       // Revert to previous status on error
-      setScanResultFiles(files => 
-        files.map(f => f.id === fileId ? { ...f, status: 'pending' as const } : f)
+      setScanResultFiles((files) =>
+        files.map((f) =>
+          f.id === fileId ? { ...f, status: "pending" as const } : f,
+        ),
       );
-      setError(err instanceof Error ? err.message : 'LLM analysis failed');
+      setError(err instanceof Error ? err.message : "LLM analysis failed");
     } finally {
       setAnalyzing(null);
     }
   };
 
   const handleAnalyzeAll = async () => {
-    const pendingFiles = scanResultFiles.filter(f => f.status === 'pending');
+    const pendingFiles = scanResultFiles.filter((f) => f.status === "pending");
     for (const file of pendingFiles) {
       await handleAnalyze(file.id);
     }
   };
 
   const getStatusColor = (status: string) => {
-    if (isCompleted(status)) return 'text-green-400 bg-green-500/10';
-    if (isRunning(status)) return 'text-yellow-400 bg-yellow-500/10';
-    if (status === 'FAILED' || status === 'sast_failed') return 'text-red-400 bg-red-500/10';
-    return 'text-gray-400 bg-gray-500/10';
+    if (isCompleted(status)) return "text-green-400 bg-green-500/10";
+    if (isRunning(status)) return "text-yellow-400 bg-yellow-500/10";
+    if (status === "FAILED" || status === "sast_failed")
+      return "text-red-400 bg-red-500/10";
+    return "text-gray-400 bg-gray-500/10";
   };
 
   const getStatusLabel = (status: string) => {
-    if (status === 'sast_completed') return 'SAST Completed';
-    if (status === 'llm_completed') return 'Analysis Complete';
-    if (status === 'sast_running') return 'SAST Running';
-    if (status === 'llm_running') return 'LLM Analyzing';
+    if (status === "sast_completed") return "SAST Scan Completed";
+    if (status === "llm_completed") return "Analysis Complete";
+    if (status === "sast_running") return "SAST Running";
+    if (status === "llm_running") return "LLM Analyzing";
     return status;
   };
 
   const vulnerabilityColors: Record<string, string> = {
-    'SQL Injection': 'bg-red-500/10 text-red-400 border-red-500/30',
-    'XSS': 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-    'Command Injection': 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+    "SQL Injection": "bg-red-500/10 text-red-400 border-red-500/30",
+    XSS: "bg-orange-500/10 text-orange-400 border-orange-500/30",
+    "Command Injection":
+      "bg-purple-500/10 text-purple-400 border-purple-500/30",
   };
 
-  const allCompleted = scanResultFiles.every(f => f.status === 'completed');
-  const hasPending = scanResultFiles.some(f => f.status === 'pending');
+  const allCompleted = scanResultFiles.every((f) => f.status === "completed");
+  const hasPending = scanResultFiles.some((f) => f.status === "pending");
 
   if (loading) {
     return (
@@ -224,8 +264,11 @@ export function ScanResultPage() {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg p-12 text-center">
-          <p className="text-gray-400">{error || 'Scan not found'}</p>
-          <Link to="/projects" className="mt-4 text-blue-400 hover:text-blue-300 text-sm block">
+          <p className="text-gray-400">{error || "Scan not found"}</p>
+          <Link
+            to="/projects"
+            className="mt-4 text-blue-400 hover:text-blue-300 text-sm block"
+          >
             Back to Projects
           </Link>
         </div>
@@ -238,9 +281,19 @@ export function ScanResultPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm mb-6">
-          <Link to="/projects" className="text-gray-400 hover:text-white transition-colors">Projects</Link>
+          <Link
+            to="/projects"
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            Projects
+          </Link>
           <ChevronRight className="w-4 h-4 text-gray-600" />
-          <Link to={`/project/${projectId}`} className="text-gray-400 hover:text-white transition-colors">{project.name}</Link>
+          <Link
+            to={`/project/${projectId}`}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            {project.name}
+          </Link>
           <ChevronRight className="w-4 h-4 text-gray-600" />
           <span className="text-white">Scan Results</span>
         </div>
@@ -248,8 +301,12 @@ export function ScanResultPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-white mb-1">LLM Analysis</h1>
-            <p className="text-gray-400 text-sm">Analyze JSON scan results using AI to identify FP/TP</p>
+            <h1 className="text-2xl font-semibold text-white mb-1">
+              LLM Analysis
+            </h1>
+            <p className="text-gray-400 text-sm">
+              Analyze JSON scan results using AI to identify FP/TP
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -290,7 +347,7 @@ export function ScanResultPage() {
               </div>
               <div>
                 <h2 className="font-semibold text-white">
-                  {scan.scan_type === 'full' ? 'Full Scan' : 'Standard Scan'}
+                  {scan.scan_type === "full" ? "Full Scan" : "Standard Scan"}
                 </h2>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Clock className="w-3 h-3" />
@@ -298,7 +355,9 @@ export function ScanResultPage() {
                 </div>
               </div>
             </div>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(scan.status)}`}>
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(scan.status)}`}
+            >
               {isRunning(scan.status) && (
                 <RefreshCw className="w-3 h-3 inline mr-1 animate-spin" />
               )}
@@ -312,7 +371,10 @@ export function ScanResultPage() {
                 <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
                 <div>
                   <p className="text-sm text-white">Scan in progress...</p>
-                  <p className="text-xs text-gray-500">SAST tools are analyzing your code. This may take a few minutes.</p>
+                  <p className="text-xs text-gray-500">
+                    SAST tools are analyzing your code. This may take a few
+                    minutes.
+                  </p>
                 </div>
               </div>
             </div>
@@ -325,10 +387,13 @@ export function ScanResultPage() {
             <div className="flex items-start gap-3">
               <Brain className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-white font-medium mb-1">AI-Powered Analysis</p>
+                <p className="text-white font-medium mb-1">
+                  AI-Powered Analysis
+                </p>
                 <p className="text-sm text-gray-400">
-                  Click "Analyze" on each JSON file to use LLM for identifying False Positives and True Positives. 
-                  The AI will generate detailed FP/TP reports for each vulnerability type.
+                  Click "Analyze" on each JSON file to use LLM for identifying
+                  False Positives and True Positives. The AI will generate
+                  detailed FP/TP reports for each vulnerability type.
                 </p>
               </div>
             </div>
@@ -336,8 +401,8 @@ export function ScanResultPage() {
         )}
 
         {/* Scan Results Table */}
-        {isCompleted(scan.status) && (
-          scanResultFiles.length === 0 ? (
+        {isCompleted(scan.status) &&
+          (scanResultFiles.length === 0 ? (
             <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg p-12 text-center">
               <FileJson className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400">No scan results available</p>
@@ -347,40 +412,57 @@ export function ScanResultPage() {
               <table className="w-full">
                 <thead className="bg-[#252525] border-b border-[#333333]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">File</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Vulnerability Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Result Path</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      File
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Vulnerability Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Result Path
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#333333]">
                   {scanResultFiles.map((file) => (
-                    <tr key={file.id} className="hover:bg-[#252525] transition-colors">
+                    <tr
+                      key={file.id}
+                      className="hover:bg-[#252525] transition-colors"
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <FileJson className="w-4 h-4 text-yellow-400" />
-                          <span className="text-sm text-white">{file.fileName}</span>
+                          <span className="text-sm text-white">
+                            {file.fileName}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-medium border ${vulnerabilityColors[file.vulnerabilityType]}`}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-medium border ${vulnerabilityColors[file.vulnerabilityType]}`}
+                        >
                           {file.vulnerabilityType}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {file.status === 'pending' && (
+                        {file.status === "pending" && (
                           <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-500/10 text-gray-400 border border-gray-500/30">
                             Pending
                           </span>
                         )}
-                        {file.status === 'scanning' && (
+                        {file.status === "scanning" && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             Analyzing...
                           </span>
                         )}
-                        {file.status === 'completed' && (
+                        {file.status === "completed" && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/30">
                             <CheckCircle className="w-3 h-3" />
                             Analyzed
@@ -391,7 +473,7 @@ export function ScanResultPage() {
                         {file.resultPath}
                       </td>
                       <td className="px-6 py-4">
-                        {file.status === 'pending' && (
+                        {file.status === "pending" && (
                           <button
                             onClick={() => handleAnalyze(file.id)}
                             disabled={!!analyzing}
@@ -401,9 +483,11 @@ export function ScanResultPage() {
                             Analyze
                           </button>
                         )}
-                        {file.status === 'completed' && (
+                        {file.status === "completed" && (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-green-400">✓ Done</span>
+                            <span className="text-xs text-green-400">
+                              ✓ Done
+                            </span>
                             <button
                               onClick={() => handleAnalyze(file.id, true)}
                               disabled={!!analyzing}
@@ -421,8 +505,7 @@ export function ScanResultPage() {
                 </tbody>
               </table>
             </div>
-          )
-        )}
+          ))}
       </div>
     </div>
   );

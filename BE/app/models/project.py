@@ -17,6 +17,9 @@ class Project(Base):
     # Source Code Upload Info (C:\tmp\{project_name}\source_code\)
     source_code_path = Column(String(500), nullable=True)  # Base path: C:\tmp\{project_name}\
     source_code_size = Column(Integer, nullable=True)  # Size in bytes
+    source_code_type = Column(String(20), nullable=True)  # "file" or "folder"
+    source_code_name = Column(String(255), nullable=True)  # Original filename or folder name
+    source_code_file_count = Column(Integer, nullable=True)  # Number of files (for folder upload)
     source_code_uploaded_at = Column(DateTime(timezone=True), nullable=True)
     
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)

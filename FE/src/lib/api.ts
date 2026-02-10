@@ -67,6 +67,15 @@ class APIService {
       });
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+          this.clearToken();
+          // Clear auth storage and redirect to login
+          localStorage.removeItem('auth-storage');
+          window.location.href = '/login';
+          throw new Error('Session expired. Please login again.');
+        }
+        
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         try {
           const errorData: ApiError = await response.json();
@@ -224,6 +233,39 @@ class APIService {
     return response.json();
   }
 
+  async uploadSourceFolder(projectId: number, files: FileList) {
+    const formData = new FormData();
+    
+    // Append all files with their relative paths
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      // webkitRelativePath contains the full path including folder name
+      formData.append('files', file, file.webkitRelativePath || file.name);
+    }
+
+    const currentToken = this.getToken();
+    const headers: HeadersInit = {};
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/api/projects/${projectId}/upload-folder`,
+      {
+        method: 'POST',
+        headers,
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Folder upload failed');
+    }
+
+    return response.json();
+  }
+
   // ============ SCAN ENDPOINTS ============
   async getScans(projectId: number) {
     return this.request<Array<{
@@ -239,6 +281,11 @@ class APIService {
       results_path: string | null;
       created_at: string;
       completed_at: string | null;
+      // Source code info
+      source_code_type: string | null;
+      source_code_name: string | null;
+      source_code_file_count: number | null;
+      source_code_size: number | null;
     }>>(`/api/scans/?project_id=${projectId}`);
   }
 
@@ -256,6 +303,11 @@ class APIService {
       results_path: string | null;
       created_at: string;
       completed_at: string | null;
+      // Source code info
+      source_code_type: string | null;
+      source_code_name: string | null;
+      source_code_file_count: number | null;
+      source_code_size: number | null;
     }>(`/api/scans/${scanId}`);
   }
 

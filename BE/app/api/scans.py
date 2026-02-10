@@ -85,12 +85,28 @@ def create_scan(
             detail="Source code not uploaded. Please upload source code first."
         )
     
-    # Create scan
+    # Find the smallest available scan ID (reuse deleted IDs)
+    from sqlalchemy import text
+    existing_ids = db.execute(text("SELECT id FROM scans ORDER BY id")).fetchall()
+    existing_id_set = {row[0] for row in existing_ids}
+    
+    new_scan_id = 1
+    while new_scan_id in existing_id_set:
+        new_scan_id += 1
+    
+    # Create scan with source code info copied from project
     db_scan = Scan(
+        id=new_scan_id,
         project_id=scan.project_id,
         user_id=current_user.id,
         scan_type=scan.scan_type,
-        status=ScanStatus.PENDING
+        status=ScanStatus.PENDING,
+        # Copy source code info from project at scan creation time
+        source_code_path=project.source_code_path,
+        source_code_type=project.source_code_type,
+        source_code_name=project.source_code_name,
+        source_code_file_count=project.source_code_file_count,
+        source_code_size=project.source_code_size
     )
     db.add(db_scan)
     db.commit()
@@ -333,11 +349,26 @@ def analyze_vulnerability_type(
         Analysis results including FP/TP classification and reports generated
     """
     import random
-    import time
+    import os
+    import uuid
     from datetime import datetime
     
-    # Seed random with current time for truly random results each call
-    random.seed(time.time())
+    # Generate truly unique seed combining:
+    # - OS cryptographic random bytes (8 bytes)
+    # - Current timestamp with nanoseconds
+    # - Scan ID and vulnerability type
+    # - A UUID for extra uniqueness
+    unique_seed = (
+        int.from_bytes(os.urandom(8), 'big') ^
+        int(datetime.now().timestamp() * 1_000_000_000) ^
+        (scan_id * 12345) ^
+        hash(vulnerability_type) ^
+        uuid.uuid4().int
+    )
+    random.seed(unique_seed)
+    
+    # Debug log to verify different seeds each time
+    print(f"[RANDOM] Scan {scan_id} - {vulnerability_type}: seed={unique_seed % 1_000_000}")
     
     # Validate vulnerability type
     valid_types = ['sql_injection', 'xss', 'command_injection']
@@ -388,6 +419,14 @@ def analyze_vulnerability_type(
         # Already analyzed - return cached results from database
         tp_count = sum(1 for v in existing_vulns if v.status == VulnerabilityStatus.TRUE_POSITIVE)
         fp_count = sum(1 for v in existing_vulns if v.status == VulnerabilityStatus.FALSE_POSITIVE)
+        
+        print(f"")
+        print(f"========== RETURNING CACHED RESULTS ==========")
+        print(f"[CACHE] Scan {scan_id} - {vulnerability_type}")
+        print(f"[CACHE] TP: {tp_count}, FP: {fp_count}")
+        print(f"[CACHE] Use force_reanalyze=true to generate new random data")
+        print(f"===============================================")
+        print(f"")
         
         # Get reports for these vulnerabilities
         vuln_ids = [v.id for v in existing_vulns]
@@ -693,8 +732,18 @@ def analyze_vulnerability_type(
         tp_count = max(1, min(total_findings - 1, tp_count))
         fp_count = total_findings - tp_count
         
-        # Log for debugging with scenario
-        print(f"[MOCK] {vuln_type_normalized}: Scenario={scenario}, Total={total_findings}, TP={tp_count} ({tp_count/total_findings*100:.0f}%), FP={fp_count}")
+        # Log for debugging with scenario - IMPORTANT: Each NEW scan should show different values
+        print(f"")
+        print(f"========== 🎲 NEW RANDOM GENERATION ==========")
+        print(f"[NEW] Scan ID: {scan_id}")
+        print(f"[NEW] Vulnerability Type: {vuln_type_normalized}")
+        print(f"[NEW] Random Seed: {unique_seed % 1_000_000}")
+        print(f"[NEW] Scenario: {scenario}")
+        print(f"[NEW] Total Findings: {total_findings}")
+        print(f"[NEW] TP Count: {tp_count} ({tp_count/total_findings*100:.0f}%)")
+        print(f"[NEW] FP Count: {fp_count} ({fp_count/total_findings*100:.0f}%)")
+        print(f"================================================")
+        print(f"")
         
         reports_generated = []
         pocs_generated = 0

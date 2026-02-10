@@ -23,6 +23,7 @@ Tài liệu này hướng dẫn cách tích hợp các module thật vào hệ t
 ### File: `app/services/sast_scanner.py`
 
 ### Vị trí mock (lines 109-164):
+
 ```python
 def _run_snyk(self, source_code_path: str) -> List[Dict[str, Any]]:
     """Run Snyk scan."""
@@ -61,10 +62,10 @@ def _run_snyk(self, source_code_path: str) -> List[Dict[str, Any]]:
             text=True,
             timeout=300  # 5 minutes timeout
         )
-        
+
         # Parse JSON output
         snyk_output = json.loads(result.stdout)
-        
+
         # Transform Snyk output sang format chuẩn
         vulnerabilities = []
         for vuln in snyk_output.get('vulnerabilities', []):
@@ -78,9 +79,9 @@ def _run_snyk(self, source_code_path: str) -> List[Dict[str, Any]]:
                 "cwe": vuln.get('identifiers', {}).get('CWE', [''])[0],
                 "discovered_at": datetime.now().isoformat()
             })
-        
+
         return vulnerabilities
-        
+
     except subprocess.TimeoutExpired:
         raise Exception("Snyk scan timed out")
     except json.JSONDecodeError:
@@ -98,9 +99,9 @@ def _run_semgrep(self, source_code_path: str) -> List[Dict[str, Any]]:
             text=True,
             timeout=300
         )
-        
+
         semgrep_output = json.loads(result.stdout)
-        
+
         vulnerabilities = []
         for finding in semgrep_output.get('results', []):
             vulnerabilities.append({
@@ -113,9 +114,9 @@ def _run_semgrep(self, source_code_path: str) -> List[Dict[str, Any]]:
                 "cwe": finding.get('extra', {}).get('metadata', {}).get('cwe', ''),
                 "discovered_at": datetime.now().isoformat()
             })
-        
+
         return vulnerabilities
-        
+
     except Exception as e:
         raise Exception(f"Semgrep scan failed: {str(e)}")
 
@@ -126,13 +127,13 @@ def _run_codeql(self, source_code_path: str) -> List[Dict[str, Any]]:
         # Step 1: Create CodeQL database
         db_path = f"/tmp/codeql_db_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         subprocess.run(
-            ['codeql', 'database', 'create', db_path, 
+            ['codeql', 'database', 'create', db_path,
              '--language=java',  # hoặc detect language
              '--source-root=' + source_code_path],
             capture_output=True,
             timeout=600
         )
-        
+
         # Step 2: Run analysis
         result = subprocess.run(
             ['codeql', 'database', 'analyze', db_path,
@@ -141,11 +142,11 @@ def _run_codeql(self, source_code_path: str) -> List[Dict[str, Any]]:
             capture_output=True,
             timeout=600
         )
-        
+
         # Step 3: Parse SARIF output
         with open('/tmp/codeql_results.sarif', 'r') as f:
             sarif_output = json.load(f)
-        
+
         vulnerabilities = []
         for run in sarif_output.get('runs', []):
             for result in run.get('results', []):
@@ -159,24 +160,25 @@ def _run_codeql(self, source_code_path: str) -> List[Dict[str, Any]]:
                     "cwe": "",  # Extract from rule metadata
                     "discovered_at": datetime.now().isoformat()
                 })
-        
+
         return vulnerabilities
-        
+
     except Exception as e:
         raise Exception(f"CodeQL scan failed: {str(e)}")
 ```
 
 ### Output format chuẩn:
+
 ```json
 {
-    "tool": "snyk|semgrep|codeql",
-    "type": "SQL Injection|XSS|Command Injection|...",
-    "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
-    "file": "path/to/vulnerable/file.java",
-    "line": 45,
-    "description": "Description of the vulnerability",
-    "cwe": "CWE-89",
-    "discovered_at": "2024-01-15T10:30:00"
+  "tool": "snyk|semgrep|codeql",
+  "type": "SQL Injection|XSS|Command Injection|...",
+  "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
+  "file": "path/to/vulnerable/file.java",
+  "line": 45,
+  "description": "Description of the vulnerability",
+  "cwe": "CWE-89",
+  "discovered_at": "2024-01-15T10:30:00"
 }
 ```
 
@@ -187,12 +189,13 @@ def _run_codeql(self, source_code_path: str) -> List[Dict[str, Any]]:
 ### File: `app/api/scans.py`
 
 ### Vị trí mock (lines 419-480):
+
 ```python
 @router.post("/{scan_id}/analyze-vulnerability-type")
 async def analyze_vulnerability_type(...):
     ...
     # ⚠️ TODO: MOCK - Replace with actual LLM Module call (lines 419-480)
-    # 
+    #
     # Expected call:
     # llm_results = llm_analyzer.analyze_vulnerability_type(
     #     scan_id=scan_id,
@@ -201,7 +204,7 @@ async def analyze_vulnerability_type(...):
     #     project_name=project.name,
     #     analysis_mode=current_user.llm_analysis_mode
     # )
-    
+
     # ⚠️ MOCK: Random FP/TP generation
     total_findings = random.randint(3, 8)
     tp_count = random.randint(1, total_findings - 1)
@@ -224,7 +227,7 @@ def analyze_vulnerability_type(
 ) -> Dict[str, Any]:
     """
     Analyze a specific vulnerability type using LLM.
-    
+
     Args:
         scan_id: The scan ID
         vulnerability_type: 'sql_injection' | 'xss' | 'command_injection'
@@ -232,7 +235,7 @@ def analyze_vulnerability_type(
         project_name: Project name
         analysis_mode: 'fine_tune' | 'gemini_api'
         gemini_api_key: Gemini API key (required if mode is gemini_api)
-    
+
     Returns:
         {
             "findings": [
@@ -265,38 +268,38 @@ def analyze_vulnerability_type(
             }
         }
     """
-    
+
     # 1. Read SAST results
     sast_results = self._read_sast_results(sast_results_path, vulnerability_type)
-    
+
     # 2. Choose analysis method
     if analysis_mode == "gemini_api":
         results = self._analyze_with_gemini(sast_results, gemini_api_key)
     else:  # fine_tune
         results = self._analyze_with_fine_tune(sast_results)
-    
+
     return results
 
 
 def _analyze_with_gemini(self, sast_results: List[Dict], api_key: str) -> Dict:
     """Use Gemini API for analysis."""
     import google.generativeai as genai
-    
+
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-pro')
-    
+
     findings = []
     for result in sast_results:
         prompt = f"""
         Analyze this SAST finding and determine if it's a True Positive or False Positive:
-        
+
         Tool: {result.get('tool')}
         Type: {result.get('type')}
         File: {result.get('file')}
         Line: {result.get('line')}
         Description: {result.get('description')}
         Code context: {result.get('code_snippet', 'N/A')}
-        
+
         Respond in JSON format:
         {{
             "is_true_positive": true/false,
@@ -305,10 +308,10 @@ def _analyze_with_gemini(self, sast_results: List[Dict], api_key: str) -> Dict:
             "recommendation": "how to fix if TP..."
         }}
         """
-        
+
         response = model.generate_content(prompt)
         llm_result = json.loads(response.text)
-        
+
         finding = {
             "is_true_positive": llm_result["is_true_positive"],
             "confidence_score": llm_result["confidence_score"],
@@ -323,14 +326,14 @@ def _analyze_with_gemini(self, sast_results: List[Dict], api_key: str) -> Dict:
                 "recommendation": llm_result.get("recommendation")
             }
         }
-        
+
         # Generate PoC if True Positive
         if llm_result["is_true_positive"]:
             poc = self._generate_poc_with_gemini(result, api_key)
             finding["poc"] = poc
-        
+
         findings.append(finding)
-    
+
     return {
         "findings": findings,
         "summary": {
@@ -353,7 +356,7 @@ def _analyze_with_fine_tune(self, sast_results: List[Dict]) -> Dict:
     # inputs = tokenizer(sast_result_text, return_tensors="pt")
     # outputs = model(**inputs)
     # prediction = outputs.logits.argmax(-1).item()  # 0=FP, 1=TP
-    
+
     raise NotImplementedError("Fine-tune model not yet integrated")
 ```
 
@@ -368,7 +371,7 @@ async def analyze_vulnerability_type(
     db: Session = Depends(get_db)
 ):
     # ... existing validation code ...
-    
+
     try:
         # ✅ REAL IMPLEMENTATION - Call LLM Module
         llm_results = llm_analyzer.analyze_vulnerability_type(
@@ -379,11 +382,11 @@ async def analyze_vulnerability_type(
             analysis_mode=current_user.llm_analysis_mode,
             gemini_api_key=current_user.gemini_api_key
         )
-        
+
         # Save results to database
         for finding in llm_results["findings"]:
             is_tp = finding["is_true_positive"]
-            
+
             # Create Vulnerability record
             vuln = Vulnerability(
                 scan_id=scan_id,
@@ -399,7 +402,7 @@ async def analyze_vulnerability_type(
             )
             db.add(vuln)
             db.flush()
-            
+
             # Create Report record
             report = Report(
                 scan_id=scan_id,
@@ -411,7 +414,7 @@ async def analyze_vulnerability_type(
                 llm_confidence=str(finding["confidence_score"])
             )
             db.add(report)
-            
+
             # Create PoC if True Positive
             if is_tp and finding.get("poc"):
                 poc = PoC(
@@ -422,16 +425,16 @@ async def analyze_vulnerability_type(
                     is_verified=False  # Will be verified by Sandbox
                 )
                 db.add(poc)
-        
+
         db.commit()
-        
+
         return {
             "scan_id": scan_id,
             "vulnerability_type": vulnerability_type,
             "status": "completed",
             "results": llm_results["summary"]
         }
-        
+
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -447,6 +450,7 @@ async def analyze_vulnerability_type(
 ### File: `app/services/sandbox.py`
 
 ### Vị trí mock:
+
 ```python
 def verify_poc(self, poc_file_path: str, vulnerability_info: Dict) -> Dict:
     # ⚠️ TODO: MOCK - Implement actual sandbox verification
@@ -468,7 +472,7 @@ class SandboxModule:
     def __init__(self):
         self.docker_client = docker.from_env()
         self.sandbox_image = "your-sandbox-image:latest"
-    
+
     def verify_poc(
         self,
         poc_file_path: str,
@@ -477,12 +481,12 @@ class SandboxModule:
     ) -> Dict[str, Any]:
         """
         Verify PoC in isolated Docker sandbox.
-        
+
         Args:
             poc_file_path: Path to PoC script
             vulnerability_info: Info about the vulnerability
             target_app_path: Path to target application (optional)
-        
+
         Returns:
             {
                 "exploitable": True/False,
@@ -492,7 +496,7 @@ class SandboxModule:
                 "sandbox_logs": "..."
             }
         """
-        
+
         try:
             # 1. Create temporary directory for sandbox
             with tempfile.TemporaryDirectory() as sandbox_dir:
@@ -500,7 +504,7 @@ class SandboxModule:
                 poc_filename = os.path.basename(poc_file_path)
                 sandbox_poc_path = os.path.join(sandbox_dir, poc_filename)
                 shutil.copy(poc_file_path, sandbox_poc_path)
-                
+
                 # 3. Create Docker container with resource limits
                 container = self.docker_client.containers.run(
                     self.sandbox_image,
@@ -515,24 +519,24 @@ class SandboxModule:
                     detach=True,
                     remove=False
                 )
-                
+
                 # 4. Wait for execution with timeout
                 start_time = time.time()
                 result = container.wait(timeout=30)
                 execution_time = time.time() - start_time
-                
+
                 # 5. Get output
                 logs = container.logs().decode('utf-8')
-                
+
                 # 6. Analyze result
                 exit_code = result.get('StatusCode', 1)
                 exploitable = self._analyze_exploitation_result(
                     exit_code, logs, vulnerability_info
                 )
-                
+
                 # 7. Cleanup
                 container.remove()
-                
+
                 return {
                     "exploitable": exploitable,
                     "output": logs,
@@ -540,7 +544,7 @@ class SandboxModule:
                     "execution_time": execution_time,
                     "sandbox_logs": logs
                 }
-                
+
         except docker.errors.ContainerError as e:
             return {
                 "exploitable": False,
@@ -557,7 +561,7 @@ class SandboxModule:
                 "execution_time": 0,
                 "sandbox_logs": ""
             }
-    
+
     def _analyze_exploitation_result(
         self,
         exit_code: int,
@@ -566,28 +570,28 @@ class SandboxModule:
     ) -> bool:
         """
         Analyze if the PoC successfully exploited the vulnerability.
-        
+
         Logic depends on vulnerability type:
         - SQL Injection: Check for data extraction
         - XSS: Check for script execution
         - Command Injection: Check for command output
         """
         vuln_type = vulnerability_info.get('type', '').lower()
-        
+
         if 'sql' in vuln_type:
             # SQL Injection - check for database data in output
             indicators = ['password', 'admin', 'user', 'SELECT', 'extracted']
             return any(ind.lower() in logs.lower() for ind in indicators)
-        
+
         elif 'xss' in vuln_type:
             # XSS - check for script execution indicators
             indicators = ['alert', 'document.cookie', 'XSS', 'executed']
             return any(ind.lower() in logs.lower() for ind in indicators)
-        
+
         elif 'command' in vuln_type:
             # Command Injection - check for command output
             return exit_code == 0 and len(logs) > 0
-        
+
         else:
             # Generic check
             return exit_code == 0
@@ -598,6 +602,7 @@ sandbox_module = SandboxModule()
 ```
 
 ### Dockerfile cho Sandbox:
+
 ```dockerfile
 # sandbox/Dockerfile
 FROM python:3.11-slim
@@ -621,6 +626,7 @@ WORKDIR /sandbox
 ### File: `app/services/llm_analyzer.py` và `app/api/scans.py`
 
 ### Vị trí mock trong `app/api/scans.py` (lines 495-527):
+
 ```python
 # ============================================================
 # ⚠️ MOCK POC GENERATION - For True Positives only
@@ -630,19 +636,19 @@ WORKDIR /sandbox
 # ============================================================
 if is_tp:
     poc_filename = f"poc_{vuln_type_normalized}_{i+1}.py"
-    
+
     # Mock: Randomly classify as Real or Poor PoC
     is_real_poc = random.choice([True, False])
     poc_type_folder = "Real_PoC" if is_real_poc else "Poor_PoC"
     poc_path = f"C:\\tmp\\{project.name}\\TP\\PoC\\{poc_type_folder}\\{poc_filename}"
-    
+
     # Mock sandbox result
     sandbox_result = (
         "[SANDBOX] Exploit executed successfully. Vulnerability confirmed."
         if is_real_poc else
         "[SANDBOX] Exploit failed. Could not reproduce vulnerability."
     )
-    
+
     poc = PoC(
         vulnerability_id=vuln.id,
         poc_type=PoCType.REAL_POC if is_real_poc else PoCType.POOR_POC,
@@ -658,6 +664,7 @@ if is_tp:
 ```
 
 ### Vị trí mock (lines 197-212):
+
 ```python
 def _generate_poc(self, sast_result: Dict[str, Any], vulnerability_type: str) -> str:
     # ⚠️ TODO: MOCK - Returns template PoC
@@ -671,7 +678,7 @@ def exploit():
 
 ### Cách tích hợp:
 
-```python
+````python
 def _generate_poc_with_gemini(
     self,
     vulnerability_info: Dict,
@@ -679,51 +686,52 @@ def _generate_poc_with_gemini(
 ) -> Dict[str, Any]:
     """Generate PoC using Gemini API."""
     import google.generativeai as genai
-    
+
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-pro')
-    
+
     prompt = f"""
     Generate a Python Proof-of-Concept (PoC) script to demonstrate this vulnerability:
-    
+
     Type: {vulnerability_info.get('type')}
     File: {vulnerability_info.get('file')}
     Line: {vulnerability_info.get('line')}
     Description: {vulnerability_info.get('description')}
-    
+
     Requirements:
     1. The PoC should be safe and only demonstrate the vulnerability
     2. Include clear comments explaining each step
     3. Print "[SUCCESS]" if exploitation is successful
     4. Print "[FAILED]" if exploitation fails
     5. Include error handling
-    
+
     Return ONLY the Python code, no explanations.
     """
-    
+
     response = model.generate_content(prompt)
     poc_code = response.text
-    
+
     # Clean up code (remove markdown if present)
     if poc_code.startswith('```python'):
         poc_code = poc_code[9:]
     if poc_code.endswith('```'):
         poc_code = poc_code[:-3]
-    
+
     vuln_type_safe = vulnerability_info.get('type', 'unknown').lower().replace(' ', '_')
-    
+
     return {
         "poc_code": poc_code.strip(),
         "poc_name": f"poc_{vuln_type_safe}.py",
         "description": f"PoC to exploit {vulnerability_info.get('type')} vulnerability"
     }
-```
+````
 
 ---
 
 ## Checklist tích hợp
 
 ### Phase 1: SAST Scanner
+
 - [ ] Cài đặt Snyk CLI: `npm install -g snyk`
 - [ ] Cài đặt Semgrep: `pip install semgrep`
 - [ ] Cài đặt CodeQL CLI
@@ -733,6 +741,7 @@ def _generate_poc_with_gemini(
 - [ ] Test với sample vulnerable project
 
 ### Phase 2: LLM Analyzer
+
 - [ ] Setup Gemini API key
 - [ ] Implement `_analyze_with_gemini()` method
 - [ ] Implement `_generate_poc_with_gemini()` method
@@ -741,6 +750,7 @@ def _generate_poc_with_gemini(
 - [ ] Update `analyze_vulnerability_type` endpoint
 
 ### Phase 3: Sandbox Module
+
 - [ ] Install Docker
 - [ ] Create sandbox Docker image
 - [ ] Implement `verify_poc()` method
@@ -748,6 +758,7 @@ def _generate_poc_with_gemini(
 - [ ] Test with sample PoCs
 
 ### Phase 4: Integration Testing
+
 - [ ] End-to-end test: Upload → SAST → LLM → Sandbox → Report
 - [ ] Test với vulnerable Java project
 - [ ] Test với các loại vulnerability khác nhau
@@ -768,9 +779,3 @@ SANDBOX_TIMEOUT=30
 ```
 
 ---
-
-## Liên hệ
-
-Nếu cần hỗ trợ tích hợp, liên hệ team qua:
-- Email: support@super-sast.dev
-- Slack: #super-sast-integration

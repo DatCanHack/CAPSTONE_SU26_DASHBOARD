@@ -1,5 +1,5 @@
-import { Shield, Zap, Brain, CheckCircle, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router';
+import { Shield, Zap, Brain, CheckCircle, ArrowRight } from "lucide-react";
+import { Link } from "react-router";
 
 export function IntroPage() {
   return (
@@ -15,17 +15,18 @@ export function IntroPage() {
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-400 rounded-full animate-pulse" />
             </div>
           </div>
-          
+
           <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
             Super SAST
           </h1>
-          
+
           <p className="text-xl text-gray-400 mb-2">
             Advanced Security Analysis System & Testing
           </p>
-          
+
           <p className="text-sm text-gray-500 max-w-3xl mx-auto">
-            An automated security testing by integration SAST and LLM to produce false positive and verify PoC
+            An automated security testing by integration SAST and LLM to produce
+            false positive and verify PoC
           </p>
         </div>
 
@@ -35,9 +36,12 @@ export function IntroPage() {
             <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4">
               <Zap className="w-6 h-6 text-blue-400" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Automated Scanning</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Automated Scanning
+            </h3>
             <p className="text-sm text-gray-400">
-              Comprehensive vulnerability detection using multiple SAST tools including Snyk, Semgrep, and CodeQL
+              Comprehensive vulnerability detection using multiple SAST tools
+              including Snyk, Semgrep, and CodeQL
             </p>
           </div>
 
@@ -45,9 +49,12 @@ export function IntroPage() {
             <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-4">
               <Brain className="w-6 h-6 text-purple-400" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">LLM Analysis</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              LLM Analysis
+            </h3>
             <p className="text-sm text-gray-400">
-              AI-powered analysis using Gemini or Fine-tuned models to classify findings and reduce false positives
+              AI-powered analysis using Gemini or Fine-tuned models to classify
+              findings and reduce false positives
             </p>
           </div>
 
@@ -55,24 +62,34 @@ export function IntroPage() {
             <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center mb-4">
               <CheckCircle className="w-6 h-6 text-green-400" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">PoC Verification</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              PoC Verification
+            </h3>
             <p className="text-sm text-gray-400">
-              Automatic generation and verification of Proof of Concept for true positive vulnerabilities
+              Automatic generation and verification of Proof of Concept to
+              confirm true vulnerabilities
             </p>
           </div>
         </div>
 
         {/* How It Works */}
         <div className="mb-16">
-          <h2 className="text-2xl font-bold text-white text-center mb-8">How It Works</h2>
+          <h2 className="text-2xl font-bold text-white text-center mb-8">
+            How It Works
+          </h2>
           <div className="space-y-4">
             <div className="flex items-start gap-4 bg-[#1a1a1a] border border-[#333333] rounded-lg p-4">
               <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 text-sm font-bold">
                 1
               </div>
               <div>
-                <h4 className="font-semibold text-white mb-1">Upload Source Code</h4>
-                <p className="text-sm text-gray-400">Upload your project files or folder for comprehensive security analysis</p>
+                <h4 className="font-semibold text-white mb-1">
+                  Upload Source Code
+                </h4>
+                <p className="text-sm text-gray-400">
+                  Upload your project files or folder for comprehensive security
+                  analysis
+                </p>
               </div>
             </div>
 
@@ -81,8 +98,13 @@ export function IntroPage() {
                 2
               </div>
               <div>
-                <h4 className="font-semibold text-white mb-1">Automated SAST Scan</h4>
-                <p className="text-sm text-gray-400">System detects SQL Injection, XSS, and Command Injection vulnerabilities using industry-leading tools</p>
+                <h4 className="font-semibold text-white mb-1">
+                  Automated SAST Scan
+                </h4>
+                <p className="text-sm text-gray-400">
+                  System detects SQL Injection, XSS, and Command Injection
+                  vulnerabilities using combine traditional tools
+                </p>
               </div>
             </div>
 
@@ -91,8 +113,13 @@ export function IntroPage() {
                 3
               </div>
               <div>
-                <h4 className="font-semibold text-white mb-1">LLM Analysis & Classification</h4>
-                <p className="text-sm text-gray-400">AI analyzes each finding to determine false positives (FP) or true positives (TP)</p>
+                <h4 className="font-semibold text-white mb-1">
+                  LLM Analysis & Classification
+                </h4>
+                <p className="text-sm text-gray-400">
+                  AI analyzes each finding to determine false positives (FP) or
+                  true positives (TP) then generate PoC for verification
+                </p>
               </div>
             </div>
 
@@ -101,8 +128,13 @@ export function IntroPage() {
                 4
               </div>
               <div>
-                <h4 className="font-semibold text-white mb-1">PoC Generation</h4>
-                <p className="text-sm text-gray-400">For true positives, the system generates detailed Proof of Concept documentation</p>
+                <h4 className="font-semibold text-white mb-1">
+                  PoC Verification
+                </h4>
+                <p className="text-sm text-gray-400">
+                  For each true positives, Generated PoC will be executed in
+                  Sandbox Environment to verify that findings
+                </p>
               </div>
             </div>
           </div>
@@ -122,11 +154,11 @@ export function IntroPage() {
         {/* Stats */}
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
-            <div className="text-4xl font-bold text-blue-400 mb-2">3</div>
+            <div className="text-4xl font-bold text-blue-400 mb-2">3+</div>
             <div className="text-sm text-gray-500">Vulnerability Types</div>
           </div>
           <div className="text-center">
-            <div className="text-4xl font-bold text-purple-400 mb-2">AI</div>
+            <div className="text-4xl font-bold text-purple-400 mb-2">LLM</div>
             <div className="text-sm text-gray-500">Powered Analysis</div>
           </div>
           <div className="text-center">

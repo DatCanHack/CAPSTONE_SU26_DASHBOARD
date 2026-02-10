@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Loader2,
   Play,
+  FolderOpen,
 } from "lucide-react";
 
 type ScanType = "full" | "standard";
@@ -26,6 +27,10 @@ interface Project {
   name: string;
   created_at: string;
   updated_at: string;
+  source_code_type?: string; // "file" or "folder"
+  source_code_name?: string; // Original filename or folder name
+  source_code_file_count?: number; // Number of files (for folder)
+  source_code_size?: number; // Size in bytes
 }
 
 interface Scan {
@@ -36,6 +41,11 @@ interface Scan {
   total_issues: number | null;
   created_at: string;
   completed_at: string | null;
+  // Source code info for this scan
+  source_code_type?: string;
+  source_code_name?: string;
+  source_code_file_count?: number;
+  source_code_size?: number;
 }
 
 export function ProjectView() {
@@ -45,6 +55,8 @@ export function ProjectView() {
   const [scans, setScans] = useState<Scan[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<FileList | null>(null);
+  const [folderName, setFolderName] = useState<string>("");
   const [scanType, setScanType] = useState<ScanType>("full");
   const [uploading, setUploading] = useState(false);
   const [uploadTab, setUploadTab] = useState<UploadTab>("file");
@@ -111,12 +123,25 @@ export function ProjectView() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
+      setSelectedFolder(null);
+      setFolderName("");
+    }
+  };
+
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFolder(e.target.files);
+      // Extract folder name from the first file's path
+      const firstFilePath = e.target.files[0].webkitRelativePath;
+      const folderNameFromPath = firstFilePath.split("/")[0];
+      setFolderName(folderNameFromPath);
+      setSelectedFile(null);
     }
   };
 
   const handleScan = async () => {
-    if (!selectedFile) {
-      alert("Please select a file first");
+    if (!selectedFile && !selectedFolder) {
+      alert("Please select a file or folder first");
       return;
     }
 
@@ -128,7 +153,11 @@ export function ProjectView() {
     try {
       // Step 1: Upload source code (20%)
       setScanProgress(20);
-      await api.uploadSourceCode(Number(projectId), selectedFile);
+      if (selectedFolder) {
+        await api.uploadSourceFolder(Number(projectId), selectedFolder);
+      } else if (selectedFile) {
+        await api.uploadSourceCode(Number(projectId), selectedFile);
+      }
 
       // Step 2: Preparing (40%)
       setScanProgress(40);
@@ -198,9 +227,13 @@ export function ProjectView() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">File:</span>
+                    <span className="text-gray-400">
+                      {selectedFolder ? "Folder:" : "File:"}
+                    </span>
                     <span className="text-white font-medium">
-                      {selectedFile?.name || "N/A"}
+                      {selectedFolder
+                        ? `📁 ${folderName}`
+                        : selectedFile?.name || "N/A"}
                     </span>
                   </div>
                 </div>
@@ -303,9 +336,13 @@ export function ProjectView() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs mt-2">
-                    <span className="text-gray-500">File:</span>
+                    <span className="text-gray-500">
+                      {selectedFolder ? "Folder:" : "File:"}
+                    </span>
                     <span className="text-white font-medium">
-                      {selectedFile?.name || "N/A"}
+                      {selectedFolder
+                        ? `📁 ${folderName} (${selectedFolder.length} files)`
+                        : selectedFile?.name || "N/A"}
                     </span>
                   </div>
                 </div>
@@ -347,7 +384,7 @@ export function ProjectView() {
                   </div>
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => navigate('/projects')}
+                      onClick={() => navigate("/projects")}
                       className="flex items-center gap-2 bg-[#252525] border border-[#333333] text-white px-4 py-2 rounded-lg hover:bg-[#2a2a2a] hover:border-[#404040] transition-colors text-sm font-medium"
                     >
                       <ArrowLeft className="w-4 h-4" />
@@ -373,7 +410,8 @@ export function ProjectView() {
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-2 h-2 rounded-full ${
-                              scan.status === "completed" || scan.status === "sast_completed"
+                              scan.status === "completed" ||
+                              scan.status === "sast_completed"
                                 ? "bg-green-400"
                                 : scan.status === "failed"
                                   ? "bg-red-400"
@@ -389,14 +427,17 @@ export function ProjectView() {
                               </span>
                               <span
                                 className={`text-xs px-2 py-0.5 rounded-full ${
-                                  scan.status === "completed" || scan.status === "sast_completed"
+                                  scan.status === "completed" ||
+                                  scan.status === "sast_completed"
                                     ? "bg-green-500/20 text-green-400"
                                     : scan.status === "failed"
                                       ? "bg-red-500/20 text-red-400"
                                       : "bg-yellow-500/20 text-yellow-400"
                                 }`}
                               >
-                                {scan.status === "sast_completed" ? "SAST Completed" : scan.status.toUpperCase()}
+                                {scan.status === "sast_completed"
+                                  ? "SAST Completed"
+                                  : scan.status.toUpperCase()}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
@@ -408,7 +449,8 @@ export function ProjectView() {
                           </div>
                         </div>
                         {/* Show different button based on scan status */}
-                        {(scan.status === "completed" || scan.status === "llm_completed") ? (
+                        {scan.status === "completed" ||
+                        scan.status === "llm_completed" ? (
                           <Link
                             to={`/project/${projectId}/report`}
                             className="text-green-400 hover:text-green-300 text-sm font-medium flex items-center gap-1"
@@ -424,7 +466,8 @@ export function ProjectView() {
                             <Play className="w-4 h-4" />
                             Continue Analysis
                           </Link>
-                        ) : scan.status === "failed" || scan.status === "sast_failed" ? (
+                        ) : scan.status === "failed" ||
+                          scan.status === "sast_failed" ? (
                           <span className="text-red-400 text-sm">Failed</span>
                         ) : (
                           <span className="text-yellow-400 text-sm flex items-center gap-1">
@@ -434,7 +477,43 @@ export function ProjectView() {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[#333333]">
+                      {/* Source Code Info for this scan */}
+                      {scan.source_code_name && (
+                        <div className="flex items-center gap-2 pt-3 border-t border-[#333333]">
+                          <div
+                            className={`w-6 h-6 rounded flex items-center justify-center ${scan.source_code_type === "folder" ? "bg-purple-500/20" : "bg-blue-500/20"}`}
+                          >
+                            {scan.source_code_type === "folder" ? (
+                              <FolderOpen className="w-3 h-3 text-purple-400" />
+                            ) : (
+                              <FileCode className="w-3 h-3 text-blue-400" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-xs text-gray-400">
+                              {scan.source_code_name}
+                            </span>
+                            <span
+                              className={`ml-2 text-xs px-1.5 py-0.5 rounded ${scan.source_code_type === "folder" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"}`}
+                            >
+                              {scan.source_code_type === "folder"
+                                ? "FOLDER"
+                                : "FILE"}
+                            </span>
+                            <span className="ml-2 text-xs text-gray-500">
+                              {scan.source_code_type === "folder"
+                                ? `${scan.source_code_file_count} files`
+                                : scan.source_code_size
+                                  ? `${(scan.source_code_size / 1024).toFixed(1)} KB`
+                                  : ""}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div
+                        className={`grid grid-cols-2 gap-4 pt-3 ${scan.source_code_name ? "" : "border-t border-[#333333]"}`}
+                      >
                         <div>
                           <div className="text-xs text-gray-500 mb-1">
                             Total Issues
@@ -463,235 +542,265 @@ export function ProjectView() {
 
           {/* Case 2: No scans OR showUploadSection is true - Show Upload Section */}
           {(scans.length === 0 || showUploadSection) && (
-          <div className="max-w-5xl mx-auto">
-            {/* Back button when coming from scan history */}
-            {showUploadSection && scans.length > 0 && (
-              <button
-                onClick={() => setShowUploadSection(false)}
-                className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 text-sm"
-              >
-                <ArrowRight className="w-4 h-4 rotate-180" />
-                Back to Scan History
-              </button>
-            )}
-            {/* VirusTotal Style Upload */}
-            <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg overflow-hidden">
-              <div className="flex items-center gap-3 px-6 py-4 border-b border-[#333333]">
-                <Upload className="w-5 h-5 text-green-400" />
-                <div>
-                  <h2 className="font-semibold text-white">
-                    Upload Source Code
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    Scan source code files for security vulnerabilities
-                  </p>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="flex border-b border-[#333333]">
+            <div className="max-w-5xl mx-auto">
+              {/* Back button when coming from scan history */}
+              {showUploadSection && scans.length > 0 && (
                 <button
-                  onClick={() => setUploadTab("file")}
-                  className={`flex-1 px-6 py-3 text-sm font-medium transition-colors relative ${
-                    uploadTab === "file"
-                      ? "text-blue-400 bg-[#252525]"
-                      : "text-gray-400 hover:text-white hover:bg-[#1f1f1f]"
-                  }`}
+                  onClick={() => setShowUploadSection(false)}
+                  className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 text-sm"
                 >
-                  FILE
-                  {uploadTab === "file" && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
-                  )}
+                  <ArrowRight className="w-4 h-4 rotate-180" />
+                  Back to Scan History
                 </button>
-                <button
-                  onClick={() => setUploadTab("folder")}
-                  className={`flex-1 px-6 py-3 text-sm font-medium transition-colors relative ${
-                    uploadTab === "folder"
-                      ? "text-blue-400 bg-[#252525]"
-                      : "text-gray-400 hover:text-white hover:bg-[#1f1f1f]"
-                  }`}
-                >
-                  FOLDER
-                  {uploadTab === "folder" && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
-                  )}
-                </button>
-              </div>
-
-              {/* Upload Area */}
-              <div className="p-12">
-                {uploadTab === "file" ? (
-                  <div className="text-center">
-                    {/* Icon */}
-                    <div className="inline-flex items-center justify-center mb-6">
-                      <div className="relative">
-                        <FileCode
-                          className="w-24 h-24 text-gray-600"
-                          strokeWidth={1}
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Fingerprint className="w-12 h-12 text-blue-400" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Choose File Button */}
-                    <div className="mb-6">
-                      <label className="inline-block">
-                        <input
-                          type="file"
-                          accept=".java"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                          id="file-upload"
-                        />
-                        <span className="px-8 py-2.5 bg-transparent border border-blue-500 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer text-sm font-medium inline-block">
-                          Choose file
-                        </span>
-                      </label>
-                      {selectedFile ? (
-                        <p className="text-sm text-gray-400 mt-3">
-                          {selectedFile.name} (
-                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      ) : (
-                        <p className="text-sm text-gray-500 mt-3">
-                          No file selected (.JAVA)
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Disclaimer */}
-                    <div className="text-xs text-gray-500 max-w-2xl mx-auto">
-                      By uploading files, you are agreeing to our{" "}
-                      <span className="text-blue-400 hover:text-blue-300 cursor-pointer">
-                        Terms of Service
-                      </span>{" "}
-                      and{" "}
-                      <span className="text-blue-400 hover:text-blue-300 cursor-pointer">
-                        Privacy Notice
-                      </span>
-                      . Please do not submit any personal information; we are
-                      not responsible for the contents of your submission.
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <div className="inline-flex items-center justify-center mb-6">
-                      <div className="relative">
-                        <FileCode
-                          className="w-24 h-24 text-gray-600"
-                          strokeWidth={1}
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Fingerprint className="w-12 h-12 text-blue-400" />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mb-6">
-                      <p className="text-sm text-gray-500 mb-3">
-                        Folder upload not yet supported. Please zip your folder
-                        and upload the ZIP file instead.
-                      </p>
-                    </div>
-                    <div className="text-xs text-gray-500 max-w-2xl mx-auto">
-                      Upload entire source code folder for comprehensive
-                      vulnerability scanning.
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Selected File Preview */}
-            {selectedFile && (
-              <div className="mt-6 bg-[#1a1a1a] border border-[#333333] rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
-                  <FileCode className="w-4 h-4 text-blue-400" />
-                  Selected File
-                </h3>
-                <div className="flex items-center gap-3 mb-4 bg-[#252525] rounded px-4 py-3">
-                  <FileCode className="w-5 h-5 text-blue-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">
-                      {selectedFile.name}
-                    </p>
+              )}
+              {/* VirusTotal Style Upload */}
+              <div className="bg-[#1a1a1a] border border-[#333333] rounded-lg overflow-hidden">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-[#333333]">
+                  <Upload className="w-5 h-5 text-green-400" />
+                  <div>
+                    <h2 className="font-semibold text-white">
+                      Upload Source Code
+                    </h2>
                     <p className="text-xs text-gray-500">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      Scan source code files for security vulnerabilities
                     </p>
                   </div>
                 </div>
 
-                {/* Scan Type Selection */}
-                <div className="border-t border-[#333333] pt-6 mt-4">
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
-                    Select Scan Type
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                    <label className="flex items-start gap-3 cursor-pointer p-4 rounded-lg border border-[#333333] hover:border-blue-500/50 hover:bg-[#252525] transition-all">
-                      <input
-                        type="radio"
-                        name="scanType"
-                        value="full"
-                        checked={scanType === "full"}
-                        onChange={(e) =>
-                          setScanType(e.target.value as ScanType)
-                        }
-                        className="mt-0.5 text-blue-600 focus:ring-blue-500 bg-[#252525] border-[#404040]"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-white block mb-1">
-                          Full Scan
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          Comprehensive analysis using Snyk, Semgrep, and CodeQL
-                        </span>
-                      </div>
-                    </label>
-                    <label className="flex items-start gap-3 cursor-pointer p-4 rounded-lg border border-[#333333] hover:border-blue-500/50 hover:bg-[#252525] transition-all">
-                      <input
-                        type="radio"
-                        name="scanType"
-                        value="standard"
-                        checked={scanType === "standard"}
-                        onChange={(e) =>
-                          setScanType(e.target.value as ScanType)
-                        }
-                        className="mt-0.5 text-blue-600 focus:ring-blue-500 bg-[#252525] border-[#404040]"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-white block mb-1">
-                          Standard Scan
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          Fast analysis using Snyk and Semgrep
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Start Scan Button */}
+                {/* Tabs */}
+                <div className="flex border-b border-[#333333]">
                   <button
-                    onClick={handleScan}
-                    disabled={!selectedFile || uploading}
-                    className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    onClick={() => setUploadTab("file")}
+                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors relative ${
+                      uploadTab === "file"
+                        ? "text-blue-400 bg-[#252525]"
+                        : "text-gray-400 hover:text-white hover:bg-[#1f1f1f]"
+                    }`}
                   >
-                    {uploading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        Start Vulnerability Scan
-                      </>
+                    FILE
+                    {uploadTab === "file" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setUploadTab("folder")}
+                    className={`flex-1 px-6 py-3 text-sm font-medium transition-colors relative ${
+                      uploadTab === "folder"
+                        ? "text-blue-400 bg-[#252525]"
+                        : "text-gray-400 hover:text-white hover:bg-[#1f1f1f]"
+                    }`}
+                  >
+                    FOLDER
+                    {uploadTab === "folder" && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />
                     )}
                   </button>
                 </div>
+
+                {/* Upload Area */}
+                <div className="p-12">
+                  {uploadTab === "file" ? (
+                    <div className="text-center">
+                      {/* Icon */}
+                      <div className="inline-flex items-center justify-center mb-6">
+                        <div className="relative">
+                          <FileCode
+                            className="w-24 h-24 text-gray-600"
+                            strokeWidth={1}
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Fingerprint className="w-12 h-12 text-blue-400" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Choose File Button */}
+                      <div className="mb-6">
+                        <label className="inline-block">
+                          <input
+                            type="file"
+                            accept=".java"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            id="file-upload"
+                          />
+                          <span className="px-8 py-2.5 bg-transparent border border-blue-500 text-blue-400 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer text-sm font-medium inline-block">
+                            Choose file
+                          </span>
+                        </label>
+                        {selectedFile ? (
+                          <p className="text-sm text-gray-400 mt-3">
+                            {selectedFile.name} (
+                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-500 mt-3">
+                            No file selected (.JAVA)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      {/* Icon */}
+                      <div className="inline-flex items-center justify-center mb-6">
+                        <div className="relative">
+                          <FileCode
+                            className="w-24 h-24 text-gray-600"
+                            strokeWidth={1}
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Fingerprint className="w-12 h-12 text-purple-400" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Choose Folder Button */}
+                      <div className="mb-6">
+                        <label className="inline-block">
+                          <input
+                            type="file"
+                            /* @ts-expect-error webkitdirectory is not in types */
+                            webkitdirectory="true"
+                            directory="true"
+                            multiple
+                            onChange={handleFolderUpload}
+                            className="hidden"
+                            id="folder-upload"
+                          />
+                          <span className="px-8 py-2.5 bg-transparent border border-purple-500 text-purple-400 rounded-lg hover:bg-purple-500/10 transition-colors cursor-pointer text-sm font-medium inline-block">
+                            Choose folder
+                          </span>
+                        </label>
+                        {selectedFolder ? (
+                          <div className="mt-3">
+                            <p className="text-sm text-white font-medium">
+                              📁 {folderName}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {selectedFolder.length} files selected
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 mt-3">
+                            No folder selected
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Selected File/Folder Preview */}
+              {(selectedFile || selectedFolder) && (
+                <div className="mt-6 bg-[#1a1a1a] border border-[#333333] rounded-lg p-6">
+                  <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <FileCode
+                      className={`w-4 h-4 ${selectedFolder ? "text-purple-400" : "text-blue-400"}`}
+                    />
+                    {selectedFolder ? "Selected Folder" : "Selected File"}
+                  </h3>
+                  <div
+                    className={`flex items-center gap-3 mb-4 rounded px-4 py-3 ${selectedFolder ? "bg-purple-500/10 border border-purple-500/30" : "bg-[#252525]"}`}
+                  >
+                    <FileCode
+                      className={`w-5 h-5 flex-shrink-0 ${selectedFolder ? "text-purple-400" : "text-blue-400"}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      {selectedFolder ? (
+                        <>
+                          <p className="text-sm text-white truncate">
+                            📁 {folderName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {selectedFolder.length} files
+                          </p>
+                        </>
+                      ) : selectedFile ? (
+                        <>
+                          <p className="text-sm text-white truncate">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Scan Type Selection */}
+                  <div className="border-t border-[#333333] pt-6 mt-4">
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Select Scan Type
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                      <label className="flex items-start gap-3 cursor-pointer p-4 rounded-lg border border-[#333333] hover:border-blue-500/50 hover:bg-[#252525] transition-all">
+                        <input
+                          type="radio"
+                          name="scanType"
+                          value="full"
+                          checked={scanType === "full"}
+                          onChange={(e) =>
+                            setScanType(e.target.value as ScanType)
+                          }
+                          className="mt-0.5 text-blue-600 focus:ring-blue-500 bg-[#252525] border-[#404040]"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-white block mb-1">
+                            Full Scan
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Comprehensive analysis using Snyk, Semgrep, and
+                            CodeQL
+                          </span>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer p-4 rounded-lg border border-[#333333] hover:border-blue-500/50 hover:bg-[#252525] transition-all">
+                        <input
+                          type="radio"
+                          name="scanType"
+                          value="standard"
+                          checked={scanType === "standard"}
+                          onChange={(e) =>
+                            setScanType(e.target.value as ScanType)
+                          }
+                          className="mt-0.5 text-blue-600 focus:ring-blue-500 bg-[#252525] border-[#404040]"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-white block mb-1">
+                            Standard Scan
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Fast analysis using Snyk and Semgrep
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Start Scan Button */}
+                    <button
+                      onClick={handleScan}
+                      disabled={(!selectedFile && !selectedFolder) || uploading}
+                      className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      {uploading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          Start Vulnerability Scan
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

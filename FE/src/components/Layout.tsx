@@ -1,11 +1,13 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../lib/auth';
-import { Shield, Home, User, LogOut, Search, FileText, ScanSearch, Settings, Folder, Users, Bell } from 'lucide-react';
+import { Shield, Home, User, LogOut, Search, FileText, ScanSearch, Settings, Folder, Users, Bell, X } from 'lucide-react';
+import { SearchProvider, useSearch } from '../lib/search';
 
-export function Layout() {
+function LayoutContent() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { searchQuery, setSearchQuery } = useSearch();
 
   const handleLogout = () => {
     logout();
@@ -131,9 +133,19 @@ export function Layout() {
                   <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search..."
-                    className="pl-9 pr-4 py-1.5 bg-[#252525] border border-[#333333] rounded-md text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-blue-500 focus:border-transparent outline-none w-64"
+                    placeholder="Search projects..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-8 py-1.5 bg-[#252525] border border-[#333333] rounded-md text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-blue-500 focus:border-transparent outline-none w-64"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <button
                   onClick={handleLogout}
@@ -153,5 +165,13 @@ export function Layout() {
         </main>
       </div>
     </div>
+  );
+}
+
+export function Layout() {
+  return (
+    <SearchProvider>
+      <LayoutContent />
+    </SearchProvider>
   );
 }

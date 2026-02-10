@@ -34,6 +34,13 @@ class Scan(Base):
     llm_analysis_mode = Column(String(50), nullable=True)  # "fine_tuning" or "rag"
     llm_output_path = Column(String(500), nullable=True)  # Path to LLM reports
     
+    # Source code info (copied from project at scan creation time)
+    source_code_path = Column(String(500), nullable=True)
+    source_code_type = Column(String(20), nullable=True)  # "file" or "folder"
+    source_code_name = Column(String(255), nullable=True)
+    source_code_file_count = Column(Integer, nullable=True)
+    source_code_size = Column(Integer, nullable=True)
+    
     started_at = Column(DateTime(timezone=True), nullable=True)
     sast_completed_at = Column(DateTime(timezone=True), nullable=True)
     llm_completed_at = Column(DateTime(timezone=True), nullable=True)
