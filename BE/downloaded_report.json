@@ -1,9 +1,0 @@
-{
-  "report_id": "test-001",
-  "vulnerability": "SQL Injection",
-  "severity": "HIGH",
-  "details": "SQL injection vulnerability found in login form",
-  "affected_file": "app/routes/auth.py",
-  "line_number": 45,
-  "recommendation": "Use parameterized queries"
-}

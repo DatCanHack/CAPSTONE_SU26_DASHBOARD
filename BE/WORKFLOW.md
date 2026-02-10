@@ -1,251 +1,131 @@
-# Web Vulnerability Scanner - Workflow Documentation
+# Tài liệu Workflow - Web Vulnerability Scanner
 
-## 📋 Tổng quan luồng hoạt động
+## 1. Tổng quan
 
+**Luồng chính:** Đăng nhập -> Trang chủ -> Quản lý dự án -> Quét mã nguồn -> Xem báo cáo
+
+**Cấu trúc thư mục:**
 ```
-Login → Home Page → Project Management → Scan → Report View
+/tmp/{project_name}/
+├── source/           # Mã nguồn upload
+├── result/           # Kết quả SAST (JSON)
+├── FP/report/        # Báo cáo False Positive
+└── TP/
+    ├── report/       # Báo cáo True Positive
+    └── PoC/
+        ├── Real_PoC/ # PoC khai thác thành công
+        └── Poor_PoC/ # PoC khai thác thất bại
 ```
 
 ---
 
-## 🔄 Chi tiết luồng
+## 2. Chi tiết các trang
 
-### 1. **Login Page**
-- User đăng nhập vào hệ thống
-- Authentication sử dụng JWT tokens
+### 2.1. Trang đăng nhập
+- Xác thực bằng JWT token
 
----
+### 2.2. Trang chủ
+- **Tạo dự án:** Nhập tên dự án, tags (tùy chọn)
+- **Danh sách dự án:** Xem và truy cập các dự án
 
-### 2. **Home Page (Trang chủ)**
+### 2.3. Trang chi tiết dự án
+- **Tóm tắt báo cáo:** Thống kê TP/FP, link đến trang báo cáo
+- **Upload và quét:**
+  - Upload mã nguồn
+  - Chọn loại quét: Standard (Snyk + Semgrep) hoặc Full (Snyk + Semgrep + CodeQL)
+  - Bắt đầu quét
 
-#### Create Project Block
-- User tạo project mới
-- Input:
-  - `project_name`: Tên project
-  - `tags` (optional): Tags để phân loại
-- Sau khi tạo, source code sẽ được lưu tại:
+### 2.4. Trang kết quả quét
+- Hiển thị kết quả SAST (các file JSON trong `/tmp/{project_name}/result/`)
+- Phân tích từng lỗ hổng hoặc tất cả bằng LLM
+- **Luồng xử lý:**
   ```
-  C:\tmp\{project_name}\source_code\
+  SAST JSON -> LLM Analyzer -> Phân loại TP/FP + Tạo báo cáo + Tạo PoC (chỉ TP) -> Sandbox -> Real/Poor PoC
   ```
 
-#### Project List
-- Hiển thị danh sách các projects
-- Mỗi project có button để vào **Project View**
+### 2.5. Trang báo cáo
+- **Báo cáo False Positive:** Danh sách, xem chi tiết, thống kê
+- **Báo cáo True Positive:** Danh sách, xem chi tiết, PoC (Real/Poor), tải xuống, thống kê
+
+### 2.6. Trang cá nhân
+- **Cài đặt LLM:** Gemini API (nhập API key) hoặc Fine-tune AI
+- **Thông tin cá nhân:** Đổi mật khẩu, tên, email, số điện thoại
 
 ---
 
-### 3. **Project View**
+## 3. Tích hợp Module
 
-Gồm 2 blocks chính:
+### 3.1. SAST Scanner
+- **Đầu vào:** Mã nguồn từ `/tmp/{project_name}/source/`
+- **Đầu ra:** File JSON theo loại lỗ hổng tại `/tmp/{project_name}/result/`
+- **Công cụ:** Snyk, Semgrep, CodeQL
 
-#### Block 1: Reports Summary
-- Hiển thị tóm tắt reports (FP & TP)
-- Nếu project đã có scan → Link tới **Report View** của `{project_name}`
-- Thống kê nhanh:
-  - Tổng số vulnerabilities
-  - Số lượng FP
-  - Số lượng TP
+### 3.2. LLM Analyzer
+- **Đầu vào:** File JSON từ SAST
+- **Xử lý:**
+  - Chế độ: Gemini API hoặc Fine-tune AI
+  - Phân loại TP/FP
+  - Tạo báo cáo
+  - Tạo PoC (chỉ cho TP)
+- **Đầu ra:**
+  - FP: `/tmp/{project_name}/FP/report/`
+  - TP: `/tmp/{project_name}/TP/report/` và `/tmp/{project_name}/TP/PoC/`
 
-#### Block 2: Upload & Scan
-- **Upload File**: User upload source code
-- **Display Source Code**: Preview code đã upload
-- **Scan Type Selection**:
-  - ✅ **Full Scan**: Snyk + Semgrep + CodeQL
-  - ✅ **Standard Scan**: Snyk + Semgrep
-- Button **Start Scan** → Chuyển tới **Scan View**
-
----
-
-### 4. **Scan View**
-
-#### Hiển thị SAST Results
-- Sau khi SAST scan xong, hiển thị các file JSON output
-- Path: `C:\tmp\{project_name}\result\`
-- Mỗi file JSON tương ứng với 1 vulnerability
-
-#### Scan Options
-- **Button "Scan"** cho từng file → Scan riêng lẻ từng vulnerability với LLM
-- **Button "Scan All"** → Scan tất cả vulnerabilities cùng lúc
-
-#### LLM Analysis Flow
-```
-SAST JSON → LLM Analyst Module → TP/FP Reports + PoC → Sandbox Module → Real/Poor PoC
-```
-- **LLM Analyst**: Phân tích dựa trên settings của user:
-  - **Gemini API** (RAG mode)
-  - **Fine-tune AI** (Fine-tuning mode)
-- **Sandbox Module**: Test PoC để verify exploit có thành công không
+### 3.3. Sandbox
+- **Đầu vào:** PoC từ LLM Analyzer
+- **Xử lý:** Thực thi PoC, kiểm tra khai thác thành công hay thất bại
+- **Đầu ra:**
+  - Thành công: `/tmp/{project_name}/TP/PoC/Real_PoC/`
+  - Thất bại: `/tmp/{project_name}/TP/PoC/Poor_PoC/`
 
 ---
 
-### 5. **Report View**
+## 4. Cơ sở dữ liệu
 
-Header: `{Project_name}`
+### Bảng User
+- `llm_analysis_mode`: gemini_api / fine_tune
+- `gemini_api_key`: Mã hóa
+- `phone_number`
 
-#### Section 1: False Positive Reports
+### Bảng Project
+- `source_code_path`, `tags`
 
-**FP Reports Table/List**
-- Columns:
-  - Report Name
-  - Vulnerability Type
-  - Severity
-  - Created Date
-  - **Button "Preview"** → Mở file report
-- Path: `C:\tmp\{project_name}\FP\report\{file_name}`
+### Bảng Scan
+- `sast_output_path`, `scan_tools`
 
-**FP Statistics**
-- Biểu đồ tròn (Pie Chart): Tỷ lệ % FP so với tổng
-- Biểu đồ so sánh: FP vs TP
+### Bảng Report
+- `report_path`, `report_type`: true_positive / false_positive
 
----
-
-#### Section 2: True Positive Reports
-
-**TP Reports Table/List**
-- Columns:
-  - Report Name
-  - Vulnerability Type
-  - Severity
-  - Created Date
-  - **Button "Preview"** → Mở file report
-- Path: `C:\tmp\{project_name}\TP\report\{file_name}`
-
-**TP PoC (Proof of Concept)** - Only for True Positive vulnerabilities
-- LLM generates PoC → Sandbox tests → Classification
-- Thêm cột **PoC Status**: 
-  - ✅ **Real PoC**: Exploit thành công - `C:\tmp\{project_name}\TP\PoC\Real_PoC\{file_name}`
-  - ⚠️ **Poor PoC**: Exploit thất bại - `C:\tmp\{project_name}\TP\PoC\Poor_PoC\{file_name}`
-- **Button "Download"**: Download PoC file
-
-**TP Statistics**
-- Biểu đồ tròn (Pie Chart): Tỷ lệ % TP so với tổng
-- Biểu đồ so sánh: TP vs FP
-- Real PoC vs Poor PoC statistics
+### Bảng PoC
+- `vulnerability_id`, `poc_type`: real_poc / poor_poc
+- `poc_path`, `is_downloadable`
 
 ---
 
-### 6. **Profile Page**
+## 5. API Endpoints
 
-#### LLM Settings
-User có thể chọn 1 trong 2 options:
+### Dự án
+- `POST /api/projects` - Tạo dự án
+- `GET /api/projects` - Danh sách dự án
+- `GET /api/projects/{id}` - Chi tiết dự án
+- `POST /api/projects/{id}/upload` - Upload mã nguồn
 
-1. **Gemini API (RAG Mode)**
-   - Input field: API Key
-   - Save API key vào database
+### Quét
+- `POST /api/scans` - Bắt đầu quét
+- `GET /api/scans/{id}` - Trạng thái quét
+- `POST /api/scans/{id}/analyze` - Phân tích LLM (1 lỗ hổng)
+- `POST /api/scans/{id}/analyze-all` - Phân tích LLM (tất cả)
 
-2. **Fine-tune AI (Fine-tuning Mode)**
-   - Sử dụng model đã fine-tune sẵn
+### Báo cáo
+- `GET /api/reports?scan_id={id}` - Lấy báo cáo theo scan
+- `GET /api/reports/{id}/download` - Tải báo cáo
 
-#### User Information
-- Change Password
-- Change Name
-- Change Email
-- Phone Number
+### PoC
+- `GET /api/pocs?vulnerability_id={id}` - Lấy PoC
+- `GET /api/pocs/{id}/download` - Tải PoC
+- `PATCH /api/pocs/{id}` - Cập nhật trạng thái PoC
 
----
-
-## 📁 File Structure
-
-```
-C:\tmp\
-└── {project_name}\
-    ├── source_code\           # Source code đã upload
-    ├── result\                # SAST JSON outputs
-    ├── FP\
-    │   └── report\           # False Positive reports
-    └── TP\
-        ├── report\           # True Positive reports
-        └── PoC\
-            ├── Real_PoC\     # Real PoC files
-            └── Poor_PoC\     # Poor PoC files
-```
-
----
-
-## 🔧 Integration Points
-
-### TODO: SAST Module Integration
-- **Input**: Source code từ `C:\tmp\{project_name}\source_code\`
-- **Output**: JSON files tại `C:\tmp\{project_name}\result\`
-- **Format**: Mỗi vulnerability = 1 JSON file
-
-### TODO: LLM Analyst Module Integration
-- **Input**: SAST JSON files từ `C:\tmp\{project_name}\result\`
-- **Processing**: 
-  - Mode: Gemini API (RAG) hoặc Fine-tune AI
-  - Analyze từng vulnerability
-  - Classify: True Positive hoặc False Positive
-  - **Generate PoC CHỈ cho True Positive vulnerabilities**
-- **Output**:
-  - FP Reports: `C:\tmp\{project_name}\FP\report\{file_name}` (NO PoC)
-  - TP Reports: `C:\tmp\{project_name}\TP\report\{file_name}`
-  - TP PoC (generated by LLM for TP only) → Forward to Sandbox Module
-
-### TODO: Sandbox Module Integration
-- **Input**: PoC files từ LLM Analyst Module
-- **Processing**: 
-  - Test/Execute PoC trong môi trường sandbox
-  - Verify xem exploit có thành công hay không
-  - Classify dựa trên kết quả:
-    - ✅ **Exploit thành công** → Real PoC
-    - ❌ **Exploit thất bại** → Poor PoC
-- **Output**:
-  - Real PoC: `C:\tmp\{project_name}\TP\PoC\Real_PoC\{file_name}`
-  - Poor PoC: `C:\tmp\{project_name}\TP\PoC\Poor_PoC\{file_name}`
-
----
-
-## 🗄️ Database Schema Updates
-
-### User Table
-- `llm_analysis_mode`: Enum("gemini_api", "fine_tune")
-- `gemini_api_key`: String (encrypted)
-- `phone_number`: String
-
-### Project Table
-- `source_code_path`: Path to uploaded source code
-- `tags`: JSON array of tags
-
-### Scan Table
-- `sast_output_path`: Path to SAST results folder
-- `scan_tools`: JSON array ["snyk", "semgrep", "codeql"]
-
-### Report Table
-- `report_path`: Path to report file
-- `report_type`: Enum("true_positive", "false_positive")
-
-### PoC Table (NEW)
-- `vulnerability_id`: Foreign key to Vulnerability
-- `poc_type`: Enum("real_poc", "poor_poc")
-- `poc_path`: Path to PoC file
-- `is_downloadable`: Boolean
-
----
-
-## 📊 API Endpoints Summary
-
-### Projects
-- `POST /api/projects` - Create project
-- `GET /api/projects` - List projects
-- `GET /api/projects/{id}` - Get project details
-- `POST /api/projects/{id}/upload` - Upload source code
-
-### Scans
-- `POST /api/scans` - Start scan
-- `GET /api/scans/{id}` - Get scan status
-- `POST /api/scans/{id}/analyze` - Run LLM analysis
-- `POST /api/scans/{id}/analyze-all` - Run LLM on all vulnerabilities
-
-### Reports
-- `GET /api/reports?scan_id={id}` - Get reports by scan
-- `GET /api/reports/{id}/download` - Download report
-
-### PoCs
-- `GET /api/pocs?vulnerability_id={id}` - Get PoCs
-- `GET /api/pocs/{id}/download` - Download PoC file
-- `PATCH /api/pocs/{id}` - Update PoC status (real/poor)
-
-### Profile
-- `PUT /api/auth/me` - Update profile
-- `PUT /api/auth/me/llm-settings` - Update LLM settings
-- `PUT /api/auth/me/password` - Change password
+### Cá nhân
+- `PUT /api/auth/me` - Cập nhật thông tin
+- `PUT /api/auth/me/llm-settings` - Cài đặt LLM
+- `PUT /api/auth/me/password` - Đổi mật khẩu
