@@ -275,9 +275,6 @@ def verify_poc(
     PoC is created unverified during LLM analysis, and only classified
     as Real/Poor when user triggers this verification.
     """
-    import random
-    from datetime import datetime
-    
     poc = db.query(PoC).join(Vulnerability).join(Scan).filter(
         PoC.id == poc_id,
         Scan.user_id == current_user.id
@@ -305,98 +302,43 @@ def verify_poc(
             detail="Project not found"
         )
     
-    # ========== MOCK #3: SANDBOX MODULE ==========
-    # TODO: Replace with actual Sandbox Module integration
-    # Expected: sandbox_result = sandbox_module.verify_poc(poc_file_path)
-    # Input: PoC file path
-    # Output: { success: bool, exploitable: bool, execution_log: str }
-    # ==============================================
+    # ============================================================
+    # SANDBOX MODULE INTEGRATION
+    # ============================================================
+    # TODO: Implement actual Sandbox Module integration
+    #
+    # Expected implementation:
+    #   from app.services.sandbox import sandbox_module
+    #   sandbox_result = sandbox_module.verify_poc(
+    #       poc_file_path=poc.poc_path,
+    #       vulnerability_info={
+    #           "title": vulnerability.title,
+    #           "cwe_id": vulnerability.cwe_id,
+    #           "type": vulnerability.description
+    #       }
+    #   )
+    #
+    # Expected sandbox_result format:
+    # {
+    #     "success": bool,        # Whether sandbox execution was successful
+    #     "exploitable": bool,    # Whether the exploit worked
+    #     "execution_log": str,   # Execution output/logs
+    #     "classification": str,  # "real_poc" or "poor_poc"
+    # }
+    #
+    # Then update PoC record:
+    #   poc.sandbox_tested = True
+    #   poc.sandbox_tested_at = datetime.utcnow()
+    #   poc.exploit_successful = sandbox_result["exploitable"]
+    #   poc.sandbox_result = sandbox_result["execution_log"]
+    #   poc.poc_type = PoCType.REAL_POC if exploitable else PoCType.POOR_POC
+    #   poc.is_downloadable = True
+    # ============================================================
     
-    # Mock Sandbox results - 70% chance of Real PoC (exploit successful)
-    is_exploitable = random.random() < 0.7
-    
-    # Mock execution logs based on vulnerability type (derived from title or cwe_id)
-    vuln_title = (vulnerability.title or "").lower()
-    cwe_id = (vulnerability.cwe_id or "").lower()
-    
-    # Determine vulnerability type from title or CWE
-    if 'sql' in vuln_title or 'cwe-89' in cwe_id:
-        vuln_type = 'sql_injection'
-    elif 'xss' in vuln_title or 'cross-site' in vuln_title or 'cwe-79' in cwe_id:
-        vuln_type = 'xss'
-    elif 'command' in vuln_title or 'injection' in vuln_title or 'cwe-78' in cwe_id:
-        vuln_type = 'command_injection'
-    else:
-        vuln_type = 'sql_injection'  # Default fallback
-    
-    mock_success_logs = {
-        'sql_injection': [
-            "[SANDBOX] Executing PoC against test database...\n[SUCCESS] SQL injection payload executed successfully\n[RESULT] Unauthorized data retrieved: 15 user records exposed\n[VERDICT] Exploit successful - Real PoC confirmed",
-            "[SANDBOX] Setting up MySQL test environment...\n[INJECT] Payload: ' OR '1'='1' --\n[SUCCESS] Authentication bypassed, admin access gained\n[VERDICT] Real PoC - Critical vulnerability confirmed",
-            "[SANDBOX] Testing blind SQL injection...\n[SUCCESS] Time-based extraction successful\n[RESULT] Database version: MySQL 8.0.32\n[VERDICT] Exploit successful - Data exfiltration possible"
-        ],
-        'xss': [
-            "[SANDBOX] Loading test page in headless browser...\n[INJECT] Script: <script>alert(document.cookie)</script>\n[SUCCESS] JavaScript executed in browser context\n[RESULT] Session cookie captured: PHPSESSID=abc123...\n[VERDICT] Real PoC - XSS attack successful",
-            "[SANDBOX] Testing DOM-based XSS...\n[SUCCESS] Payload executed via innerHTML\n[RESULT] Simulated cookie theft successful\n[VERDICT] Real PoC - Client-side attack confirmed"
-        ],
-        'command_injection': [
-            "[SANDBOX] Executing command injection test...\n[INJECT] Payload: ; cat /etc/passwd\n[SUCCESS] System file read successful\n[RESULT] Retrieved 45 lines from /etc/passwd\n[VERDICT] Real PoC - RCE vulnerability confirmed",
-            "[SANDBOX] Testing OS command injection...\n[SUCCESS] Reverse shell connection established\n[RESULT] Shell access gained with www-data privileges\n[VERDICT] Real PoC - Critical RCE confirmed"
-        ]
-    }
-    
-    mock_fail_logs = {
-        'sql_injection': [
-            "[SANDBOX] Executing PoC against test database...\n[BLOCKED] WAF detected and blocked SQL injection attempt\n[RESULT] Query sanitized, no data leaked\n[VERDICT] Poor PoC - Exploit blocked by security controls",
-            "[SANDBOX] Testing SQL injection payload...\n[FAILED] Prepared statements prevented injection\n[RESULT] Query executed safely with escaped input\n[VERDICT] Poor PoC - Parameterized queries effective"
-        ],
-        'xss': [
-            "[SANDBOX] Loading test page in headless browser...\n[BLOCKED] Content Security Policy prevented script execution\n[RESULT] Inline script blocked by CSP\n[VERDICT] Poor PoC - CSP headers effective",
-            "[SANDBOX] Testing XSS payload...\n[FAILED] Output encoding neutralized attack\n[RESULT] Script tags rendered as text\n[VERDICT] Poor PoC - Input sanitization working"
-        ],
-        'command_injection': [
-            "[SANDBOX] Executing command injection test...\n[BLOCKED] Input validation rejected malicious characters\n[RESULT] Command not executed\n[VERDICT] Poor PoC - Input filtering effective",
-            "[SANDBOX] Testing OS command injection...\n[FAILED] Sandboxed environment blocked system calls\n[RESULT] Permission denied for dangerous operations\n[VERDICT] Poor PoC - Sandbox restrictions effective"
-        ]
-    }
-    
-    # Select appropriate mock log
-    if is_exploitable:
-        logs = mock_success_logs.get(vuln_type, mock_success_logs.get('sql_injection'))
-    else:
-        logs = mock_fail_logs.get(vuln_type, mock_fail_logs.get('sql_injection'))
-    
-    execution_log = random.choice(logs)
-    
-    # Update PoC with Sandbox results
-    from app.models.poc import PoCType
-    
-    poc.sandbox_tested = True
-    poc.sandbox_tested_at = datetime.utcnow()
-    poc.exploit_successful = is_exploitable
-    poc.sandbox_result = execution_log
-    
-    if is_exploitable:
-        # Real PoC - Exploit successful
-        poc.poc_type = PoCType.REAL_POC
-        poc.is_downloadable = True
-        
-        # Update path to Real_PoC folder
-        new_path = f"C:\\tmp\\{project.name}\\TP\\PoC\\Real_PoC\\{poc.poc_name}"
-        poc.poc_path = new_path
-    else:
-        # Poor PoC - Exploit failed
-        poc.poc_type = PoCType.POOR_POC
-        poc.is_downloadable = True
-        
-        # Update path to Poor_PoC folder
-        new_path = f"C:\\tmp\\{project.name}\\TP\\PoC\\Poor_PoC\\{poc.poc_name}"
-        poc.poc_path = new_path
-    
-    db.commit()
-    db.refresh(poc)
-    
-    return poc
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Sandbox verification not yet implemented. Please integrate sandbox_module.verify_poc() function."
+    )
 
 
 @router.delete("/{poc_id}", status_code=status.HTTP_204_NO_CONTENT)

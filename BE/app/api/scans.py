@@ -348,28 +348,6 @@ def analyze_vulnerability_type(
     Returns:
         Analysis results including FP/TP classification and reports generated
     """
-    import random
-    import os
-    import uuid
-    from datetime import datetime
-    
-    # Generate truly unique seed combining:
-    # - OS cryptographic random bytes (8 bytes)
-    # - Current timestamp with nanoseconds
-    # - Scan ID and vulnerability type
-    # - A UUID for extra uniqueness
-    unique_seed = (
-        int.from_bytes(os.urandom(8), 'big') ^
-        int(datetime.now().timestamp() * 1_000_000_000) ^
-        (scan_id * 12345) ^
-        hash(vulnerability_type) ^
-        uuid.uuid4().int
-    )
-    random.seed(unique_seed)
-    
-    # Debug log to verify different seeds each time
-    print(f"[RANDOM] Scan {scan_id} - {vulnerability_type}: seed={unique_seed % 1_000_000}")
-    
     # Validate vulnerability type
     valid_types = ['sql_injection', 'xss', 'command_injection']
     vuln_type_normalized = vulnerability_type.lower()
@@ -463,7 +441,7 @@ def analyze_vulnerability_type(
     
     # If force_reanalyze, delete existing data for this vulnerability type
     if existing_vulns and force_reanalyze:
-        print(f"[MOCK] Force re-analyze: Deleting {len(existing_vulns)} existing vulnerabilities for {vuln_type_normalized}")
+        print(f"[LLM] Force re-analyze: Deleting {len(existing_vulns)} existing vulnerabilities for {vuln_type_normalized}")
         vuln_ids = [v.id for v in existing_vulns]
         
         # Delete related PoCs first (foreign key constraint)
@@ -484,9 +462,9 @@ def analyze_vulnerability_type(
             db.commit()
         
         # ============================================================
-        # ⚠️ MOCK LOCATION #2 - LLM ANALYZER INTEGRATION (MAIN)
+        # LLM ANALYZER INTEGRATION
         # ============================================================
-        # TODO: Replace this entire mock section with actual LLM Module call
+        # TODO: Implement actual LLM Module integration
         # 
         # Expected implementation:
         #   llm_results = llm_analyzer.analyze_vulnerability_type(
@@ -499,427 +477,36 @@ def analyze_vulnerability_type(
         #   )
         #
         # Then iterate over llm_results["findings"] to create:
-        #   - Vulnerability records
-        #   - Report records  
-        #   - PoC records (for True Positives)
+        #   - Vulnerability records (with status TRUE_POSITIVE or FALSE_POSITIVE)
+        #   - Report records
+        #   - PoC records (for True Positives only)
         #
-        # See: INTEGRATION_GUIDE.md - Section "MOCK LOCATION #2: LLM Analyzer"
+        # Required llm_results format:
+        # {
+        #     "findings": [
+        #         {
+        #             "is_true_positive": bool,
+        #             "title": "...",
+        #             "description": "...",
+        #             "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
+        #             "cwe_id": "CWE-XX",
+        #             "file_path": "...",
+        #             "line_number": int,
+        #             "code_snippet": "...",
+        #             "confidence_score": "XX%",
+        #             "recommendation": "...",
+        #             "report_content": "...",
+        #             "poc_code": "..." (only for TP)
+        #         },
+        #         ...
+        #     ]
+        # }
         # ============================================================
         
-        # ============================================================
-        # ⚠️ MOCK DATA - Random realistic vulnerability data
-        # ============================================================
-        # TODO: Remove after implementing real LLM integration
-        # ============================================================
-        
-        # Mock data templates for each vulnerability type
-        mock_data = {
-            'sql_injection': {
-                'cwe_id': 'CWE-89',
-                'files': [
-                    'src/main/java/com/app/dao/UserDAO.java',
-                    'src/main/java/com/app/dao/ProductDAO.java',
-                    'src/main/java/com/app/repository/OrderRepository.java',
-                    'src/main/java/com/app/service/AuthService.java',
-                    'src/main/java/com/app/controller/SearchController.java',
-                    'src/main/java/com/app/api/AdminAPI.java',
-                ],
-                'titles': [
-                    'SQL Injection in user authentication query',
-                    'SQL Injection in product search functionality',
-                    'SQL Injection in order lookup by ID',
-                    'SQL Injection in dynamic table name construction',
-                    'SQL Injection in admin dashboard filter',
-                    'SQL Injection in report generation query',
-                ],
-                'descriptions_tp': [
-                    'User input is directly concatenated into SQL query without sanitization. Attacker can inject malicious SQL to bypass authentication or extract sensitive data.',
-                    'The search parameter is vulnerable to SQL injection. An attacker could use UNION-based injection to extract database contents.',
-                    'Order ID parameter is not properly validated, allowing SQL injection attacks that could expose customer information.',
-                    'Dynamic SQL construction using string concatenation allows table name injection, potentially accessing unauthorized data.',
-                    'Admin filter parameters are passed directly to SQL query, enabling privilege escalation through injection.',
-                    'Report date range parameters are vulnerable to time-based blind SQL injection.',
-                ],
-                'descriptions_fp': [
-                    'Parameter is sanitized using PreparedStatement. The pattern detected is a false positive.',
-                    'Input validation and parameterized queries prevent actual exploitation.',
-                    'ORM framework handles escaping automatically, no real vulnerability exists.',
-                    'Whitelist validation ensures only valid table names are accepted.',
-                    'Input is validated against regex pattern before use in query.',
-                    'Stored procedure with proper parameter binding prevents injection.',
-                ],
-                'recommendations': [
-                    'Use PreparedStatement with parameterized queries instead of string concatenation.',
-                    'Implement input validation and use ORM frameworks like Hibernate.',
-                    'Apply the principle of least privilege for database accounts.',
-                    'Use stored procedures with proper parameter binding.',
-                    'Implement Web Application Firewall (WAF) rules for SQL injection patterns.',
-                ],
-                'code_snippets': [
-                    'String query = "SELECT * FROM users WHERE username=\'" + username + "\' AND password=\'" + password + "\'";',
-                    'String sql = "SELECT * FROM products WHERE name LIKE \'%" + searchTerm + "%\'";',
-                    'stmt.executeQuery("SELECT * FROM orders WHERE id = " + orderId);',
-                    'String tableName = request.getParameter("table"); rs = stmt.executeQuery("SELECT * FROM " + tableName);',
-                    'String filter = "SELECT * FROM admin_logs WHERE " + filterColumn + " = \'" + filterValue + "\'";',
-                ],
-                'sandbox_success': [
-                    '[SANDBOX] SQL Injection successful! Extracted 150 user records including passwords.',
-                    '[SANDBOX] UNION-based injection worked. Database schema exposed.',
-                    '[SANDBOX] Authentication bypassed using \' OR 1=1 -- payload.',
-                    '[SANDBOX] Time-based blind injection confirmed. Data extraction possible.',
-                ],
-                'sandbox_fail': [
-                    '[SANDBOX] Injection attempt blocked by PreparedStatement.',
-                    '[SANDBOX] Input validation rejected malicious payload.',
-                    '[SANDBOX] WAF blocked the SQL injection pattern.',
-                    '[SANDBOX] Parameterized query prevented exploitation.',
-                ],
-            },
-            'xss': {
-                'cwe_id': 'CWE-79',
-                'files': [
-                    'src/main/webapp/views/profile.jsp',
-                    'src/main/webapp/views/search-results.jsp',
-                    'src/main/webapp/views/comments.jsp',
-                    'src/main/java/com/app/controller/MessageController.java',
-                    'src/main/resources/templates/dashboard.html',
-                    'src/main/webapp/js/user-input.js',
-                ],
-                'titles': [
-                    'Reflected XSS in user profile display',
-                    'Stored XSS in search results page',
-                    'DOM-based XSS in comment section',
-                    'XSS in error message rendering',
-                    'Persistent XSS in dashboard widget',
-                    'XSS through URL parameter reflection',
-                ],
-                'descriptions_tp': [
-                    'User-supplied data is rendered without encoding, allowing script injection that executes in victim browsers.',
-                    'Search query is reflected in page without proper HTML encoding, enabling reflected XSS attacks.',
-                    'Comment content is stored and displayed without sanitization, allowing persistent XSS.',
-                    'Error messages include user input without encoding, vulnerable to reflected XSS.',
-                    'Dashboard widgets render user data using innerHTML without sanitization.',
-                    'URL parameters are directly inserted into DOM using document.write().',
-                ],
-                'descriptions_fp': [
-                    'Output is properly encoded using OWASP encoder library.',
-                    'Content Security Policy (CSP) headers prevent script execution.',
-                    'React/Angular framework automatically escapes output.',
-                    'Server-side template engine escapes HTML by default.',
-                    'HttpOnly cookies prevent session hijacking even if XSS exists.',
-                    'Input is sanitized using DOMPurify before rendering.',
-                ],
-                'recommendations': [
-                    'Implement proper output encoding using context-aware escaping.',
-                    'Use Content Security Policy (CSP) headers to prevent inline script execution.',
-                    'Sanitize user input using libraries like DOMPurify or OWASP Java Encoder.',
-                    'Use modern frameworks that auto-escape output (React, Angular, Vue).',
-                    'Set HttpOnly and Secure flags on session cookies.',
-                ],
-                'code_snippets': [
-                    '<div>Welcome, <%= request.getParameter("name") %></div>',
-                    'document.getElementById("results").innerHTML = searchQuery;',
-                    '<span th:utext="${userComment}"></span>',
-                    'response.getWriter().println("<p>Error: " + errorMsg + "</p>");',
-                    'element.innerHTML = userData.bio;',
-                ],
-                'sandbox_success': [
-                    '[SANDBOX] XSS payload executed! Alert box triggered with document.cookie.',
-                    '[SANDBOX] Stored XSS persisted. Script executes on page load.',
-                    '[SANDBOX] DOM manipulation successful. Fake login form injected.',
-                    '[SANDBOX] Session token extracted via XSS payload.',
-                ],
-                'sandbox_fail': [
-                    '[SANDBOX] CSP blocked inline script execution.',
-                    '[SANDBOX] Output encoding prevented script injection.',
-                    '[SANDBOX] DOMPurify sanitized the malicious payload.',
-                    '[SANDBOX] HttpOnly cookie prevented session theft.',
-                ],
-            },
-            'command_injection': {
-                'cwe_id': 'CWE-78',
-                'files': [
-                    'src/main/java/com/app/util/SystemUtils.java',
-                    'src/main/java/com/app/service/BackupService.java',
-                    'src/main/java/com/app/controller/DiagnosticController.java',
-                    'src/main/java/com/app/util/FileProcessor.java',
-                    'src/main/java/com/app/service/PdfGenerator.java',
-                    'src/main/java/com/app/util/NetworkUtils.java',
-                ],
-                'titles': [
-                    'OS Command Injection in system utility function',
-                    'Command Injection in backup filename parameter',
-                    'Command Injection in diagnostic ping functionality',
-                    'Command Injection in file processing utility',
-                    'Command Injection in PDF generation service',
-                    'Command Injection in network diagnostic tool',
-                ],
-                'descriptions_tp': [
-                    'User input is passed directly to Runtime.exec() without validation, allowing arbitrary command execution.',
-                    'Backup filename parameter is concatenated into shell command, enabling command injection.',
-                    'Ping target address is not validated, allowing command chaining with semicolon or pipe.',
-                    'File path parameter is used in shell command without sanitization.',
-                    'PDF conversion uses external tool with unsanitized filename parameter.',
-                    'Network diagnostic accepts IP/hostname that is passed to system commands.',
-                ],
-                'descriptions_fp': [
-                    'ProcessBuilder with argument array prevents command injection.',
-                    'Input is validated against strict whitelist of allowed characters.',
-                    'Command is executed with no user-controlled parameters.',
-                    'Sandboxed execution environment limits command impact.',
-                    'Input validation rejects shell metacharacters.',
-                    'Using Java native APIs instead of shell commands.',
-                ],
-                'recommendations': [
-                    'Use ProcessBuilder with argument arrays instead of Runtime.exec() with concatenated strings.',
-                    'Implement strict input validation using whitelist approach.',
-                    'Avoid passing user input to system commands when possible.',
-                    'Use language-native APIs instead of shell commands (e.g., Java NIO for file operations).',
-                    'Run commands in sandboxed/containerized environment with minimal privileges.',
-                ],
-                'code_snippets': [
-                    'Runtime.getRuntime().exec("ping -c 4 " + hostname);',
-                    'Process p = Runtime.getRuntime().exec("tar -czf " + filename + ".tar.gz /backup");',
-                    'String cmd = "convert " + inputFile + " " + outputFile; Runtime.getRuntime().exec(cmd);',
-                    'ProcessBuilder pb = new ProcessBuilder("sh", "-c", "cat " + userFile);',
-                    'String[] cmd = {"/bin/sh", "-c", "nslookup " + domain};',
-                ],
-                'sandbox_success': [
-                    '[SANDBOX] Command injection successful! Executed: id; cat /etc/passwd',
-                    '[SANDBOX] Reverse shell established via command injection.',
-                    '[SANDBOX] File system access gained through command chaining.',
-                    '[SANDBOX] Arbitrary file read achieved using command injection.',
-                ],
-                'sandbox_fail': [
-                    '[SANDBOX] ProcessBuilder argument array prevented injection.',
-                    '[SANDBOX] Input validation blocked shell metacharacters.',
-                    '[SANDBOX] Sandboxed environment restricted command execution.',
-                    '[SANDBOX] Whitelist validation rejected malicious input.',
-                ],
-            },
-        }
-        
-        # Get mock data for this vulnerability type
-        vuln_mock = mock_data[vuln_type_normalized]
-        
-        # ============================================================
-        # Random TP/FP distribution for diverse chart percentages
-        # ============================================================
-        # Each scan generates completely random results for variety
-        # Using wider range (15%-85%) for more visible differences
-        # ============================================================
-        
-        # Random total findings between 4-10 for this vulnerability type
-        total_findings = random.randint(4, 10)
-        
-        # Pick a random scenario for more dramatic variation
-        scenario = random.choice(['very_high_tp', 'high_tp', 'balanced', 'high_fp', 'very_high_fp'])
-        
-        if scenario == 'very_high_tp':
-            tp_ratio = random.uniform(0.75, 0.90)  # 75-90% TP
-        elif scenario == 'high_tp':
-            tp_ratio = random.uniform(0.60, 0.75)  # 60-75% TP
-        elif scenario == 'balanced':
-            tp_ratio = random.uniform(0.40, 0.60)  # 40-60% TP
-        elif scenario == 'high_fp':
-            tp_ratio = random.uniform(0.25, 0.40)  # 25-40% TP (high FP)
-        else:  # very_high_fp
-            tp_ratio = random.uniform(0.10, 0.25)  # 10-25% TP (very high FP)
-        
-        tp_count = round(total_findings * tp_ratio)
-        
-        # Ensure at least 1 TP and 1 FP for chart visibility
-        tp_count = max(1, min(total_findings - 1, tp_count))
-        fp_count = total_findings - tp_count
-        
-        # Log for debugging with scenario - IMPORTANT: Each NEW scan should show different values
-        print(f"")
-        print(f"========== 🎲 NEW RANDOM GENERATION ==========")
-        print(f"[NEW] Scan ID: {scan_id}")
-        print(f"[NEW] Vulnerability Type: {vuln_type_normalized}")
-        print(f"[NEW] Random Seed: {unique_seed % 1_000_000}")
-        print(f"[NEW] Scenario: {scenario}")
-        print(f"[NEW] Total Findings: {total_findings}")
-        print(f"[NEW] TP Count: {tp_count} ({tp_count/total_findings*100:.0f}%)")
-        print(f"[NEW] FP Count: {fp_count} ({fp_count/total_findings*100:.0f}%)")
-        print(f"================================================")
-        print(f"")
-        
-        reports_generated = []
-        pocs_generated = 0
-        
-        # Shuffle indices for random selection
-        indices = list(range(len(vuln_mock['files'])))
-        random.shuffle(indices)
-        
-        # Create vulnerabilities and reports in database
-        # Shuffle order so TP and FP are mixed (not all TP first)
-        finding_types = [True] * tp_count + [False] * fp_count
-        random.shuffle(finding_types)
-        
-        for i in range(total_findings):
-            is_tp = finding_types[i]
-            idx = indices[i % len(indices)]
-            
-            # Random severity - weighted by TP/FP but with some overlap for realism
-            if is_tp:
-                # TP: mostly Critical/High, but occasionally Medium
-                severity = random.choices(
-                    [VulnerabilitySeverity.CRITICAL, VulnerabilitySeverity.HIGH, VulnerabilitySeverity.MEDIUM],
-                    weights=[35, 50, 15]
-                )[0]
-            else:
-                # FP: mostly Low/Medium/Info, but occasionally High (SAST false alarms)
-                severity = random.choices(
-                    [VulnerabilitySeverity.HIGH, VulnerabilitySeverity.MEDIUM, VulnerabilitySeverity.LOW, VulnerabilitySeverity.INFO],
-                    weights=[10, 30, 35, 25]
-                )[0]
-            
-            # Get description based on classification - random from pool
-            descriptions_pool = vuln_mock['descriptions_tp'] if is_tp else vuln_mock['descriptions_fp']
-            description = descriptions_pool[random.randint(0, len(descriptions_pool) - 1)]
-            
-            # Random confidence score with more variation
-            confidence = random.randint(72, 98) if is_tp else random.randint(55, 88)
-            
-            # Random selection for title, file, code snippet
-            title_idx = random.randint(0, len(vuln_mock['titles']) - 1)
-            file_idx = random.randint(0, len(vuln_mock['files']) - 1)
-            snippet_idx = random.randint(0, len(vuln_mock['code_snippets']) - 1)
-            
-            # Random line number in realistic range
-            line_number = random.randint(25, 450)
-            
-            # Create vulnerability record
-            vuln = Vulnerability(
-                scan_id=scan_id,
-                title=vuln_mock['titles'][title_idx],
-                description=description,
-                severity=severity,
-                status=VulnerabilityStatus.TRUE_POSITIVE if is_tp else VulnerabilityStatus.FALSE_POSITIVE,
-                sast_json_path=f"C:\\tmp\\{project.name}\\result\\{vuln_type_normalized}_results.json",
-                cwe_id=vuln_mock['cwe_id'],
-                file_path=vuln_mock['files'][file_idx],
-                line_number=line_number,
-                code_snippet=vuln_mock['code_snippets'][snippet_idx] if is_tp else None,
-                is_false_positive=not is_tp,
-                llm_confidence_score=f"{confidence}%",
-                recommendation=random.choice(vuln_mock['recommendations']) if is_tp else "No action required - verified as false positive."
-            )
-            db.add(vuln)
-            db.flush()
-            
-            # Create report record
-            report_type = ReportType.TRUE_POSITIVE if is_tp else ReportType.FALSE_POSITIVE
-            report_type_str = "TP" if is_tp else "FP"
-            report_path = f"C:\\tmp\\{project.name}\\{report_type_str}\\report\\{report_type_str}_{vuln_type_normalized}_{i+1}_report.html"
-            
-            # Generate detailed report content
-            if is_tp:
-                details = f"""LLM Analysis Result: TRUE POSITIVE (Confidence: {confidence}%)
-
-Vulnerability Details:
-- Type: {vuln_type_display[vuln_type_normalized]}
-- CWE: {vuln_mock['cwe_id']}
-- File: {vuln.file_path}
-- Line: {vuln.line_number}
-
-Description:
-{description}
-
-Code Pattern Detected:
-{vuln.code_snippet}
-
-Risk Assessment:
-This vulnerability poses a {severity.value} risk to the application security."""
-            else:
-                details = f"""LLM Analysis Result: FALSE POSITIVE (Confidence: {confidence}%)
-
-Analysis:
-{description}
-
-Reason for Classification:
-After thorough analysis, the LLM determined this finding is a false positive due to existing security controls."""
-            
-            report = Report(
-                scan_id=scan_id,
-                vulnerability_id=vuln.id,
-                report_type=report_type,
-                report_path=report_path,
-                llm_analysis_mode=current_user.llm_analysis_mode,
-                llm_confidence=f"{confidence}%",
-                summary=f"{vuln_type_display[vuln_type_normalized]}: {vuln.title}",
-                details=details,
-                recommendations=vuln.recommendation
-            )
-            db.add(report)
-            
-            # ============================================================
-            # ⚠️ MOCK POC GENERATION - For True Positives only
-            # ============================================================
-            # PoC is created but NOT verified yet
-            # User must click "Verify PoC" to run Sandbox and determine Real/Poor
-            # ============================================================
-            if is_tp:
-                poc_filename = f"poc_{vuln_type_normalized}_{i+1}.py"
-                
-                # PoC initially saved to pending folder (not yet verified)
-                poc_path = f"C:\\tmp\\{project.name}\\TP\\PoC\\pending\\{poc_filename}"
-                
-                poc = PoC(
-                    vulnerability_id=vuln.id,
-                    poc_type=PoCType.REAL_POC,  # Default, will be updated after verification
-                    poc_name=poc_filename,
-                    poc_path=poc_path,
-                    description=f"Proof of Concept for {vuln.title}. Click 'Verify PoC' to test in Sandbox.",
-                    is_downloadable=False,  # Not downloadable until verified
-                    sandbox_tested=False,   # NOT YET TESTED
-                    exploit_successful=None,  # Unknown until verified
-                    sandbox_result=None  # Will be filled after Sandbox verification
-                )
-                db.add(poc)
-                pocs_generated += 1
-            
-            reports_generated.append({
-                "type": report_type_str,
-                "path": report_path
-            })
-        
-        # Check if all vulnerability types have been analyzed
-        all_vuln_types_analyzed = True
-        for vt in valid_types:
-            vt_display = vuln_type_display[vt]
-            existing = db.query(Vulnerability).filter(
-                Vulnerability.scan_id == scan_id,
-                Vulnerability.title.like(f"%{vt_display}%"),
-                Vulnerability.status.in_([VulnerabilityStatus.TRUE_POSITIVE, VulnerabilityStatus.FALSE_POSITIVE])
-            ).first()
-            if not existing and vt != vuln_type_normalized:
-                all_vuln_types_analyzed = False
-                break
-        
-        # Update scan status if all types are analyzed
-        if all_vuln_types_analyzed:
-            scan.status = ScanStatus.COMPLETED
-            scan.llm_completed_at = datetime.now()
-            scan.completed_at = datetime.now()
-        
-        db.commit()
-        
-        return {
-            "scan_id": scan_id,
-            "vulnerability_type": vulnerability_type,
-            "status": "completed",
-            "message": f"LLM analysis completed for {vulnerability_type}",
-            "results": {
-                "vulnerability_type": vulnerability_type,
-                "total_findings": total_findings,
-                "true_positives": tp_count,
-                "false_positives": fp_count,
-                "reports_generated": reports_generated,
-                "pocs_generated": pocs_generated
-            }
-        }
+        raise NotImplementedError(
+            f"LLM analysis not yet implemented for {vulnerability_type}. "
+            "Please integrate llm_analyzer.analyze_vulnerability_type() function."
+        )
         
     except Exception as e:
         db.rollback()
