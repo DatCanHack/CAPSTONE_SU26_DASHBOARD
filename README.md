@@ -21,7 +21,7 @@ A Hybrid Automated Security Testing Platform that combines traditional SAST tool
 │  - LLM Analyzer Module                                           │
 │  - Sandbox Module (PoC Verification)                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  Database (SQLite/PostgreSQL)                                    │
+│  Database (MySQL)                                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
